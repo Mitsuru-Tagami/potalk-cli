@@ -14,7 +14,8 @@ const HELP = `ぽっと通話 CLI (ptk)
                       新しい部屋を作って入る
   ptk help  | --help  このヘルプ
 
-  lobby / join / create のオプション: --name 名前（既定 ゲスト）  --emoji 絵文字（既定 💻）
+  lobby / join / create のオプション: --name 名前  --emoji 絵文字
+                              一度付ければ覚えて、次からはそれを使う（最初は ゲスト・💻）
                               --no-sound 音を鳴らさない（鳴らすには sox が必要）
   部屋の中では、文字を打って Enter でひとことを送る（TUI は i で入力欄へ）。
   /who 参加者　/mute 音を消す・戻す　/q 退出。話すはまだできません。
@@ -31,16 +32,19 @@ const opt = (name, def) => {
   return i >= 0 && rest[i + 1] ? rest[i + 1] : def;
 };
 
-// 名乗り（--name / --emoji）。本家と同じ上限で切り詰める
+// 名乗り。前回覚えたもの（~/.config/ptk/profile.json）に --name / --emoji を重ね、付いていれば覚え直す
 const profileFromOpts = async () => {
-  const { capText } = await import('./lib/text.mjs');
-  return { name: capText(opt('name', 'ゲスト'), 20) || 'ゲスト', emoji: capText(opt('emoji', '💻'), 8) || '💻' };
+  const { resolveProfile, profilePath } = await import('./lib/profile.mjs');
+  const r = resolveProfile({ name: opt('name', undefined), emoji: opt('emoji', undefined) });
+  const notice = r.saved ? `📝 名乗りを覚えました：${r.profile.emoji}${r.profile.name}（次からは --name なしでこの名前です）`
+    : r.error ? `（名乗りを保存できませんでした：${profilePath()}：${r.error}）` : '';
+  return { profile: r.profile, notice };
 };
 
 switch (cmd) {
   case 'lobby':
   case 'ロビー':
-    await (await import('./commands/lobby.mjs')).runLobby({ profile: await profileFromOpts(), sound: !rest.includes('--no-sound') });
+    await (await import('./commands/lobby.mjs')).runLobby({ ...await profileFromOpts(), sound: !rest.includes('--no-sound') });
     break;
   case 'list':
   case '一覧':
@@ -59,7 +63,9 @@ switch (cmd) {
     const FLAGS = ['--no-sound'];   // 値を取らないオプション
     const arg = rest.find((a, i) => !a.startsWith('--') && !(rest[i - 1]?.startsWith('--') && !FLAGS.includes(rest[i - 1])));
     if (creating && !arg) { console.error('部屋名を指定してください: ptk create 部屋名'); process.exit(1); }
-    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create: creating ? arg : null, profile: await profileFromOpts(), sound: !rest.includes('--no-sound') });
+    const { profile, notice } = await profileFromOpts();
+    if (notice) console.error(notice);
+    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create: creating ? arg : null, profile, sound: !rest.includes('--no-sound') });
     break;
   }
   default:

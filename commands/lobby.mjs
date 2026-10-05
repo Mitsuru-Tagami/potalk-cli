@@ -8,7 +8,7 @@ import { padWidth, tuiText } from '../lib/text.mjs';
 import { showRoom } from './roomview.mjs';
 import { fixBlessedWidths } from '../lib/tui.mjs';
 
-export async function runLobby({ profile, sound = true } = {}) {
+export async function runLobby({ profile, notice = '', sound = true } = {}) {
   // ログで TUI が崩れないよう、console とエラーはファイルへ逃がす
   const logPath = path.join(os.tmpdir(), 'ptk-debug.log');
   const logStream = fs.createWriteStream(logPath, { flags: 'a' });
@@ -30,7 +30,7 @@ export async function runLobby({ profile, sound = true } = {}) {
 
   const mainBox = blessed.box({
     top: 'center', left: 'center', width: '100%', height: '100%',
-    label: ' POT-TALK CLI v0.1.0 ─── [Mode: LOBBY] ',
+    label: tuiText(` POT-TALK CLI v0.1.0 ─── [Mode: LOBBY] ─── あなた：${profile.emoji}${profile.name}（変えるには ptk --name 名前） `),
     border: { type: 'line' },
     style: { border: { fg: 'cyan' } }
   });
@@ -71,7 +71,7 @@ export async function runLobby({ profile, sound = true } = {}) {
   let lobby = null;
   let shown = [];       // いま一覧に出している部屋（行番号 → 部屋）
   let current = null;   // 入っている部屋（showRoom の戻り値）。null ならロビーを見ている
-  let note = '';        // 部屋から戻ったときのひとこと（満員だった等）
+  let note = notice;    // 画面の頭に出すひとこと（名乗りを覚えた・部屋が満員だった等）
   let filter = '';      // 絞り込みの文字（空なら全部）
 
   function render() {
