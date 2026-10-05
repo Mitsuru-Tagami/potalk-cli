@@ -13,7 +13,7 @@ const HELP = `ぽっと通話 CLI (ptk)
                       新しい部屋を作って入る
   ptk help  | --help  このヘルプ
 
-  lobby / join / create のオプション: --name 名前（既定 ゲスト）  --emoji 絵文字（既定 ⌨️）
+  lobby / join / create のオプション: --name 名前（既定 ゲスト）  --emoji 絵文字（既定 💻）
                               --no-sound 音を鳴らさない（鳴らすには sox が必要）
   部屋の中では /who で参加者、/mute で音を消す・戻す、/q で退出。話す・書き込むはまだできません。
 `;
@@ -32,7 +32,7 @@ const opt = (name, def) => {
 // 名乗り（--name / --emoji）。本家と同じ上限で切り詰める
 const profileFromOpts = async () => {
   const { capText } = await import('./lib/text.mjs');
-  return { name: capText(opt('name', 'ゲスト'), 20) || 'ゲスト', emoji: capText(opt('emoji', '⌨️'), 8) || '⌨️' };
+  return { name: capText(opt('name', 'ゲスト'), 20) || 'ゲスト', emoji: capText(opt('emoji', '💻'), 8) || '💻' };
 };
 
 switch (cmd) {
