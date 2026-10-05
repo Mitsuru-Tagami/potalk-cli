@@ -5,6 +5,7 @@ import { openLobby } from '../lib/lobby.mjs';
 import { openRoom, parseRoomRef, newRoomId, roomUrl } from '../lib/room.mjs';
 import { capText } from '../lib/text.mjs';
 import { ROOM_MAX } from '../lib/config.mjs';
+import { openSpeaker } from '../lib/audio.mjs';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 const say = s => console.log(`${hhmm()}  ${s}`);
@@ -22,7 +23,7 @@ async function pickFromLobby(lobby, rl) {
   return r ? { roomId: r.id, name: r.rn } : null;
 }
 
-export async function runJoin({ ref, create, profile }) {
+export async function runJoin({ ref, create, profile, sound = true }) {
   process.on('uncaughtException', e => { if (process.env.PTK_DEBUG) console.error('[error]', e?.message || e); });
   // trystero はリレーの不調（rate limit など）を console.warn に出す。よくあることなので普段は隠す
   const warn = console.warn;
@@ -36,10 +37,14 @@ export async function runJoin({ ref, create, profile }) {
   else target = await pickFromLobby(lobby, rl);
   if (!target?.roomId) { console.error('部屋が決まりませんでした。'); await lobby.leave(); process.exit(1); }
 
+  const speaker = sound ? openSpeaker({ onError: msg => say('🔇 ' + msg) }) : null;
+
   const room = openRoom({
     ...target, profile, lobby,
     onEvent: ev => {
       switch (ev.type) {
+        case 'track': speaker?.attach(ev.id, ev.track); break;
+        case 'gone': speaker?.detach(ev.id); break;
         case 'join': say(`👋 ${ev.who} とつながりました`); break;
         case 'leave': say(ev.clean ? `🚪 ${ev.who} が退出しました` : `🔌 ${ev.who} との接続が切れました（退出ではありません）`); break;
         case 'chat': say(`💬 ${ev.from}：${ev.text}`); break;
@@ -54,12 +59,15 @@ export async function runJoin({ ref, create, profile }) {
   const label = target.name || '（名前のない部屋）';
   say(`📞 ${label} に入りました${room.bcast ? '（配信部屋・聞き役）' : ''}  あなた：${profile.emoji}${profile.name}`);
   say(`🔗 ${roomUrl(room.roomId, target.name)}`);
-  say('（/who 参加者　/q 退出。話す・書き込むはまだできません。相手とつながるまで数秒〜十数秒かかります）');
+  if (room.bcast) say('🔇 配信部屋の音はまだ聞けません（ふつうの部屋だけ聞こえます）');
+  else if (!speaker) say('🔇 音なしで入りました（--no-sound）');
+  say('（/who 参加者　/mute 音を消す・戻す　/q 退出。話す・書き込むはまだできません。相手とつながるまで数秒〜十数秒かかります）');
 
   let quitting = false;
   async function quit(code = 0) {
     if (quitting) return; quitting = true;
     say('退出します…');
+    speaker?.close();
     await room.leave();
     await lobby.leave();
     process.exit(code);
@@ -72,9 +80,16 @@ export async function runJoin({ ref, create, profile }) {
     if (s === '/q' || s === '/quit') return quit(0);
     if (s === '/who') {
       const ms = room.members();
-      say(`👥 ${ms.length + 1}人：${profile.emoji}${profile.name}（あなた）${ms.map(m => ' ' + m.label + (m.muted ? '🔇' : '')).join('')}`);
+      const mark = m => m.muted ? '🔇' : speaker?.talking(m.id) ? '🔊' : '';
+      say(`👥 ${ms.length + 1}人：${profile.emoji}${profile.name}（あなた）${ms.map(m => ' ' + m.label + mark(m)).join('')}`);
       return;
     }
-    if (s) say('（書き込みはまだできません。/who 参加者　/q 退出）');
+    if (s === '/mute') {
+      if (!speaker?.available) { say('🔇 音は出ていません'); return; }
+      speaker.setMuted(!speaker.muted);
+      say(speaker.muted ? '🔇 音を消しました（もう一度 /mute で戻ります）' : '🔈 音を戻しました');
+      return;
+    }
+    if (s) say('（書き込みはまだできません。/who 参加者　/mute 音を消す・戻す　/q 退出）');
   });
 }

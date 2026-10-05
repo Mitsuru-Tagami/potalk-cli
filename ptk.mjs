@@ -14,7 +14,8 @@ const HELP = `ぽっと通話 CLI (ptk)
   ptk help  | --help  このヘルプ
 
   join / create のオプション: --name 名前（既定 ゲスト）  --emoji 絵文字（既定 ⌨️）
-  部屋の中では /who で参加者、/q で退出。話す・書き込むはまだできません。
+                              --no-sound 音を鳴らさない（鳴らすには sox が必要）
+  部屋の中では /who で参加者、/mute で音を消す・戻す、/q で退出。話す・書き込むはまだできません。
 `;
 
 const [cmd = 'lobby', ...rest] = process.argv.slice(2);
@@ -43,11 +44,12 @@ switch (cmd) {
   case 'create':
   case '部屋をつくる': {
     const creating = cmd === 'create' || cmd === '部屋をつくる';
-    const arg = rest.find((a, i) => !a.startsWith('--') && !rest[i - 1]?.startsWith('--'));
+    const FLAGS = ['--no-sound'];   // 値を取らないオプション
+    const arg = rest.find((a, i) => !a.startsWith('--') && !(rest[i - 1]?.startsWith('--') && !FLAGS.includes(rest[i - 1])));
     if (creating && !arg) { console.error('部屋名を指定してください: ptk create 部屋名'); process.exit(1); }
     const { capText } = await import('./lib/text.mjs');
     const profile = { name: capText(opt('name', 'ゲスト'), 20), emoji: capText(opt('emoji', '⌨️'), 8) || '⌨️' };
-    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create: creating ? arg : null, profile });
+    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create: creating ? arg : null, profile, sound: !rest.includes('--no-sound') });
     break;
   }
   default:
