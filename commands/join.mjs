@@ -12,8 +12,8 @@ const ask = (rl, q) => new Promise(r => rl.question(q, r));
 
 // 引数なし：ロビーを少し眺めて番号で選ばせる
 async function pickFromLobby(lobby, rl) {
-  console.error('🛰 ロビーを見ています…（8秒）');
-  await new Promise(r => setTimeout(r, 8000));
+  console.error('🛰 ロビーを見ています…（15秒）');
+  await new Promise(r => setTimeout(r, 15000));
   const rooms = lobby.rooms();
   if (!rooms.length) { console.error('通話中の部屋がありません。ptk create 部屋名 で作れます。'); return null; }
   rooms.forEach((r, i) => console.log(`  ${i + 1}. ${r.bo ? '📡 ' : ''}${r.rn || '（名前のない部屋）'}${r.tag ? ' #' + r.tag : ''}  ${r.people.length}人 ${r.people.map(p => p.emoji).join('')}`));
