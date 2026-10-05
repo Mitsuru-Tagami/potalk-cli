@@ -7,10 +7,14 @@ const HELP = `ぽっと通話 CLI (ptk)
   ptk                 ロビーを TUI で表示する（= ptk lobby）
   ptk lobby | ロビー   同上
   ptk list  | 一覧     通話中の部屋を一覧で出力する（--seconds N で待ち時間、既定 15）
+  ptk join  | 参加する [招待リンク|部屋ID]
+                      部屋に入る（引数なしならロビーから番号で選ぶ）
+  ptk create | 部屋をつくる 部屋名
+                      新しい部屋を作って入る
   ptk help  | --help  このヘルプ
 
-まだ無いもの:
-  ptk create | 部屋をつくる / ptk join | 参加する
+  join / create のオプション: --name 名前（既定 ゲスト）  --emoji 絵文字（既定 ⌨️）
+  部屋の中では /who で参加者、/q で退出。話す・書き込むはまだできません。
 `;
 
 const [cmd = 'lobby', ...rest] = process.argv.slice(2);
@@ -34,12 +38,18 @@ switch (cmd) {
   case '-h':
     console.log(HELP);
     break;
-  case 'create':
-  case '部屋をつくる':
   case 'join':
   case '参加する':
-    console.error(`「${cmd}」はまだ実装されていません。`);
-    process.exit(1);
+  case 'create':
+  case '部屋をつくる': {
+    const creating = cmd === 'create' || cmd === '部屋をつくる';
+    const arg = rest.find((a, i) => !a.startsWith('--') && !rest[i - 1]?.startsWith('--'));
+    if (creating && !arg) { console.error('部屋名を指定してください: ptk create 部屋名'); process.exit(1); }
+    const { capText } = await import('./lib/text.mjs');
+    const profile = { name: capText(opt('name', 'ゲスト'), 20), emoji: capText(opt('emoji', '⌨️'), 8) || '⌨️' };
+    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create: creating ? arg : null, profile });
+    break;
+  }
   default:
     console.error(`不明なコマンド: ${cmd}\n`);
     console.error(HELP);
