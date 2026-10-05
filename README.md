@@ -24,6 +24,7 @@ ptk               # ロビーを TUI で表示（j/k で移動、Enter で部屋
 ptk list          # 通話中の部屋を一覧で出力（--seconds N で待ち時間、既定 15 秒）
 ptk join          # ロビーから番号で選んで部屋に入る
 ptk join 'https://potalk.app/#room=…&name=…'   # 招待リンクで入る
+ptk join アサ      # 名前の一部で入る（部屋名・話題タグ・いる人の名前。複数合えば番号で選ぶ）
 ptk create 部屋名  # 新しい部屋を作って入る
 ptk help
 ```

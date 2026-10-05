@@ -1,8 +1,8 @@
 // ptk join / ptk create ── 通話部屋に入る（行表示。TUI ではロビーで部屋を選んで Enter）
 // 今の版でできること：入る・参加者を見る・声を聞く・ひとことを読む／書く・出る。話すはまだ。
 import readline from 'readline';
-import { openLobby } from '../lib/lobby.mjs';
-import { parseRoomRef, newRoomId } from '../lib/room.mjs';
+import { openLobby, matchRoom } from '../lib/lobby.mjs';
+import { parseRoomRef, newRoomId, isRoomRef } from '../lib/room.mjs';
 import { enterRoom } from '../lib/session.mjs';
 import { capText } from '../lib/text.mjs';
 import { ROOM_MAX } from '../lib/config.mjs';
@@ -11,16 +11,43 @@ const hhmm = () => new Date().toTimeString().slice(0, 5);
 const say = s => console.log(`${hhmm()}  ${s}`);
 const ask = (rl, q) => new Promise(r => rl.question(q, r));
 
-// 引数なし：ロビーを少し眺めて番号で選ばせる
-async function pickFromLobby(lobby, rl) {
-  console.error('🛰 ロビーを見ています…（15秒）');
-  await new Promise(r => setTimeout(r, 15000));
-  const rooms = lobby.rooms();
-  if (!rooms.length) { console.error('通話中の部屋がありません。ptk create 部屋名 で作れます。'); return null; }
-  rooms.forEach((r, i) => console.log(`  ${i + 1}. ${r.bo ? '📡 ' : ''}${r.rn || '（名前のない部屋）'}${r.tag ? ' #' + r.tag : ''}  ${r.people.length}人 ${r.people.map(p => p.emoji).join('')}`));
+const roomLine = (r, i) => `  ${i + 1}. ${r.bo ? '📡 ' : ''}${r.rn || '（名前のない部屋）'}${r.tag ? ' #' + r.tag : ''}  ${r.people.length}人 ${r.people.map(p => p.emoji).join('')}`;
+
+// ロビーを眺めて部屋を集める。query があれば合うものだけ。
+// 最長 15 秒。ただし合う部屋が見つかってから 4 秒ふえなければ、そこで打ち切る（いつも 15 秒待たせない）
+async function scanLobby(lobby, query) {
+  const hit = r => !query || matchRoom(r, query) || r.id === query;   // 古い部屋は ID＝名前なので ID の一致も見る
+  const t0 = Date.now();
+  let last = -1, stableSince = Date.now();
+  while (Date.now() - t0 < 15000) {
+    await new Promise(r => setTimeout(r, 500));
+    const n = lobby.rooms().filter(hit).length;
+    if (n !== last) { last = n; stableSince = Date.now(); }
+    if (query && n > 0 && Date.now() - t0 > 5000 && Date.now() - stableSince > 4000) break;
+  }
+  return lobby.rooms().filter(hit);
+}
+
+// 候補から選ぶ。1 つならそのまま、複数なら番号で
+async function pick(rooms, rl, query) {
+  if (rooms.length === 1 && query) return rooms[0];
+  rooms.forEach((r, i) => console.log(roomLine(r, i)));
   const n = Number(await ask(rl, '入る部屋の番号: '));
-  const r = rooms[n - 1];
-  return r ? { roomId: r.id, name: r.rn } : null;
+  return rooms[n - 1] || null;
+}
+
+// 引数なし：ロビー全体から番号で。引数が部屋 ID でなければ：名前の一部として探す（Issue #6）
+async function pickFromLobby(lobby, rl, query = '') {
+  console.error(query ? `🛰 「${query}」に合う部屋をロビーで探しています…（最長 15 秒）` : '🛰 ロビーを見ています…（15秒）');
+  const rooms = await scanLobby(lobby, query);
+  if (!rooms.length) {
+    console.error(query
+      ? `「${query}」に合う部屋は見つかりませんでした（部屋名・話題タグ・いる人の名前で探しています）。新しく作るなら ptk create ${query}`
+      : '通話中の部屋がありません。ptk create 部屋名 で作れます。');
+    return null;
+  }
+  const r = await pick(rooms, rl, query);
+  return r ? { roomId: r.id, name: r.rn } : undefined;   // undefined＝番号が外れた（null＝見つからなかった）
 }
 
 export async function runJoin({ ref, create, profile, sound = true }) {
@@ -33,9 +60,10 @@ export async function runJoin({ ref, create, profile, sound = true }) {
 
   let target;
   if (create) target = { roomId: newRoomId(), name: capText(create, ROOM_MAX) };
-  else if (ref) target = parseRoomRef(ref);
-  else target = await pickFromLobby(lobby, rl);
-  if (!target?.roomId) { console.error('部屋が決まりませんでした。'); await lobby.leave(); process.exit(1); }
+  else if (ref && isRoomRef(ref)) target = parseRoomRef(ref);
+  else target = await pickFromLobby(lobby, rl, ref || '');
+  // 見つからなかった理由は pickFromLobby が出している。番号の入力で外れたときだけここで言う
+  if (!target?.roomId) { if (target !== null) console.error('部屋が決まりませんでした。'); await lobby.leave(); process.exit(1); }
 
   const session = enterRoom({
     target, profile, lobby, sound,
