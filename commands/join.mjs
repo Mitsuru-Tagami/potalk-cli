@@ -1,11 +1,11 @@
-// ptk join / ptk create ── 通話部屋に入る（行表示。TUI からの入室は後で足す）
-// 今の版でできること：入る・参加者を見る・届いたひとことを見る・出る。話す／書くはまだ。
+// ptk join / ptk create ── 通話部屋に入る（行表示。TUI ではロビーで部屋を選んで Enter）
+// 今の版でできること：入る・参加者を見る・声を聞く・届いたひとことを見る・出る。話す／書くはまだ。
 import readline from 'readline';
 import { openLobby } from '../lib/lobby.mjs';
-import { openRoom, parseRoomRef, newRoomId, roomUrl } from '../lib/room.mjs';
+import { parseRoomRef, newRoomId } from '../lib/room.mjs';
+import { enterRoom } from '../lib/session.mjs';
 import { capText } from '../lib/text.mjs';
 import { ROOM_MAX } from '../lib/config.mjs';
-import { openSpeaker } from '../lib/audio.mjs';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 const say = s => console.log(`${hhmm()}  ${s}`);
@@ -37,38 +37,18 @@ export async function runJoin({ ref, create, profile, sound = true }) {
   else target = await pickFromLobby(lobby, rl);
   if (!target?.roomId) { console.error('部屋が決まりませんでした。'); await lobby.leave(); process.exit(1); }
 
-  const speaker = sound ? openSpeaker({ onError: msg => say('🔇 ' + msg) }) : null;
-
-  const room = openRoom({
-    ...target, profile, lobby,
-    onEvent: ev => {
-      switch (ev.type) {
-        case 'track': speaker?.attach(ev.id, ev.track); break;
-        case 'gone': speaker?.detach(ev.id); break;
-        case 'join': say(`👋 ${ev.who} とつながりました`); break;
-        case 'leave': say(ev.clean ? `🚪 ${ev.who} が退出しました` : `🔌 ${ev.who} との接続が切れました（退出ではありません）`); break;
-        case 'chat': say(`💬 ${ev.from}：${ev.text}`); break;
-        case 'system': say(`ℹ️  ${ev.text}`); break;
-        case 'meta': say(`🏷  部屋名：${ev.meta.name || '（名前のない部屋）'}${ev.meta.tag ? `　話題：${ev.meta.tag}（${ev.meta.tagBy}）` : ''}`); break;
-        case 'full': say(`この部屋は満員です（最大 ${ev.cap}人）。しばらくしてから入り直してください`); quit(1); break;
-        case 'warn': if (process.env.PTK_DEBUG) say(`⚠️  ${ev.text}`); break;
-      }
-    }
+  const session = enterRoom({
+    target, profile, lobby, sound,
+    onText: say,
+    onFull: () => quit(1)
   });
-
-  const label = target.name || '（名前のない部屋）';
-  say(`📞 ${label} に入りました${room.bcast ? '（配信部屋・聞き役）' : ''}  あなた：${profile.emoji}${profile.name}`);
-  say(`🔗 ${roomUrl(room.roomId, target.name)}`);
-  if (room.bcast) say('🔇 配信部屋の音はまだ聞けません（ふつうの部屋だけ聞こえます）');
-  else if (!speaker) say('🔇 音なしで入りました（--no-sound）');
-  say('（/who 参加者　/mute 音を消す・戻す　/q 退出。話す・書き込むはまだできません。相手とつながるまで数秒〜十数秒かかります）');
+  say('（/who 参加者　/mute 音を消す・戻す　/q 退出。話す・書き込むはまだできません）');
 
   let quitting = false;
   async function quit(code = 0) {
     if (quitting) return; quitting = true;
     say('退出します…');
-    speaker?.close();
-    await room.leave();
+    await session.leave();
     await lobby.leave();
     process.exit(code);
   }
@@ -79,17 +59,11 @@ export async function runJoin({ ref, create, profile, sound = true }) {
     const s = line.trim();
     if (s === '/q' || s === '/quit') return quit(0);
     if (s === '/who') {
-      const ms = room.members();
-      const mark = m => m.muted ? '🔇' : speaker?.talking(m.id) ? '🔊' : '';
-      say(`👥 ${ms.length + 1}人：${profile.emoji}${profile.name}（あなた）${ms.map(m => ' ' + m.label + mark(m)).join('')}`);
+      const ms = session.members();
+      say(`👥 ${ms.length}人：${ms.map(m => m.label + (m.self ? '' : m.muted ? '🔇' : m.talking ? '🔊' : '')).join(' ')}`);
       return;
     }
-    if (s === '/mute') {
-      if (!speaker?.available) { say('🔇 音は出ていません'); return; }
-      speaker.setMuted(!speaker.muted);
-      say(speaker.muted ? '🔇 音を消しました（もう一度 /mute で戻ります）' : '🔈 音を戻しました');
-      return;
-    }
+    if (s === '/mute') return session.toggleMute();
     if (s) say('（書き込みはまだできません。/who 参加者　/mute 音を消す・戻す　/q 退出）');
   });
 }
