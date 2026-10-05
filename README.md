@@ -35,6 +35,11 @@ po-talk のブラウザ版と同じロビー・同じ Nostr リレーに乗り�
 今の版で部屋の中でできるのは「入る・参加者を見る・**声を聞く**・届いたひとことと話題タグを見る・出る」までです。話す・書き込むはまだできません。
 配信部屋の声はまだ聞けません（下のしくみのメモを参照）。
 
+> [!WARNING]
+> **CLI を使うと、あなたの IP アドレスが相手から見えます。**
+> po-talk のブラウザ版は TURN 中継を通すので相手に IP が見えませんが、CLI はまだ TURN を使えず、相手と直接つなぎます（STUN のみ）。
+> 同じ部屋の人だけでなく、ロビーを開いているブラウザからも見えます。気になる場合は使わないでください（[#2](https://github.com/Mitsuru-Tagami/potalk-cli/issues/2)）。
+
 ### しくみのメモ
 
 - WebRTC は [@roamhq/wrtc](https://github.com/WonderInventions/node-webrtc)（Chromium と同じ libwebrtc）を使っています。
