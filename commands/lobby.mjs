@@ -6,6 +6,7 @@ import blessed from 'blessed';
 import { openLobby } from '../lib/lobby.mjs';
 import { padWidth, tuiText } from '../lib/text.mjs';
 import { showRoom } from './roomview.mjs';
+import { fixBlessedWidths } from '../lib/tui.mjs';
 
 export async function runLobby({ profile, sound = true } = {}) {
   // ログで TUI が崩れないよう、console とエラーはファイルへ逃がす
@@ -19,6 +20,7 @@ export async function runLobby({ profile, sound = true } = {}) {
   console.warn = (...args) => logStream.write('[WARN] ' + fmt(args) + '\n');
 
   // --- TUI Setup ---
+  fixBlessedWidths();   // 絵文字を 2 マスと数えさせる（ずれて文字が食われるのを防ぐ）
   const screen = blessed.screen({
     smartCSR: true,
     fullUnicode: true,   // 日本語・絵文字の幅を正しく扱う
