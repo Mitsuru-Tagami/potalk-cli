@@ -4,7 +4,7 @@
 //   ├────────────────────────────────┤
 //   │ お知らせ（つながった・ひとこと…）  │
 //   ├────────────────────────────────┤
-//   │ > 入力欄                          │
+//   │ > 入力欄（ひとことを書く）         │
 //   │ キーの説明                        │
 //   └────────────────────────────────┘
 import blessed from 'blessed';
@@ -41,8 +41,8 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
     const help = blessed.box({ parent: frame, bottom: 1, left: 1, width: '100%-4', height: 1, style: { fg: 'gray' } });
 
     const setHelp = typing => help.setContent(typing
-      ? '  Enter: 決定 | Esc: やめる   （書き込みはまだできません）'
-      : '  m: 音を消す・戻す | i / Enter: 入力 | j/k: お知らせを遡る | q: 退出してロビーへ');
+      ? '  Enter: ひとことを送る（60 文字まで） | Esc: やめる'
+      : '  i / Enter: ひとことを書く | m: 音を消す・戻す | j/k: お知らせを遡る | q: 退出してロビーへ');
     setHelp(false);
 
     let session = null, closing = false;
@@ -103,7 +103,8 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
       input.clearValue(); setHelp(false); log.focus();
       if (s === '/q' || s === '/quit') return close();
       if (s === '/mute') return session.toggleMute();
-      if (s) say('（書き込みはまだできません。m: 音を消す・戻す　q: 退出）');
+      if (s.startsWith('/')) say('（使えるのは /mute と /q です）');
+      else if (s) session.say(s);
       screen.render();
     });
     input.on('cancel', () => { submittedAt = Date.now(); input.clearValue(); setHelp(false); log.focus(); screen.render(); });

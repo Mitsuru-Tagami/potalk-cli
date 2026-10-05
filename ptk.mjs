@@ -15,7 +15,8 @@ const HELP = `ぽっと通話 CLI (ptk)
 
   lobby / join / create のオプション: --name 名前（既定 ゲスト）  --emoji 絵文字（既定 💻）
                               --no-sound 音を鳴らさない（鳴らすには sox が必要）
-  部屋の中では /who で参加者、/mute で音を消す・戻す、/q で退出。話す・書き込むはまだできません。
+  部屋の中では、文字を打って Enter でひとことを送る（TUI は i で入力欄へ）。
+  /who 参加者　/mute 音を消す・戻す　/q 退出。話すはまだできません。
 `;
 
 // `ptk --name 名前` のようにオプションだけなら、コマンドは lobby（--help / -h はそのまま help へ）
