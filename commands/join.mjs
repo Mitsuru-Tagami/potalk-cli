@@ -1,5 +1,5 @@
 // ptk join / ptk create ── 通話部屋に入る（行表示。TUI ではロビーで部屋を選んで Enter）
-// 今の版でできること：入る・参加者を見る・声を聞く・届いたひとことを見る・出る。話す／書くはまだ。
+// 今の版でできること：入る・参加者を見る・声を聞く・ひとことを読む／書く・出る。話すはまだ。
 import readline from 'readline';
 import { openLobby } from '../lib/lobby.mjs';
 import { parseRoomRef, newRoomId } from '../lib/room.mjs';
@@ -42,7 +42,7 @@ export async function runJoin({ ref, create, profile, sound = true }) {
     onText: say,
     onFull: () => quit(1)
   });
-  say('（/who 参加者　/mute 音を消す・戻す　/q 退出。話す・書き込むはまだできません）');
+  say('（文字を打って Enter でひとことを送る。/who 参加者　/mute 音を消す・戻す　/q 退出）');
 
   let quitting = false;
   async function quit(code = 0) {
@@ -64,6 +64,7 @@ export async function runJoin({ ref, create, profile, sound = true }) {
       return;
     }
     if (s === '/mute') return session.toggleMute();
-    if (s) say('（書き込みはまだできません。/who 参加者　/mute 音を消す・戻す　/q 退出）');
+    if (s.startsWith('/')) { say('（使えるのは /who /mute /q です）'); return; }
+    if (s) session.say(s);
   });
 }
