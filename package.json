@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node ptk.mjs",
     "list": "node ptk.mjs list",
-    "test": "node --test test/**/*.mjs"
+    "test": "node --test"
   },
   "keywords": [],
   "author": "",
