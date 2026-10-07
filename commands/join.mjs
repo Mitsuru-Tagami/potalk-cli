@@ -1,5 +1,5 @@
 // ptk join / ptk create ── 通話部屋に入る（行表示。TUI ではロビーで部屋を選んで Enter）
-// 今の版でできること：入る・参加者を見る・声を聞く・ひとことを読む／書く・出る。話すはまだ。
+// できること：入る・参加者を見る・声を聞く・話す（/mic）・ひとことを読む／書く・出る
 import readline from 'readline';
 import { openLobby, matchRoom } from '../lib/lobby.mjs';
 import { parseRoomRef, newRoomId, isRoomRef } from '../lib/room.mjs';
@@ -70,7 +70,7 @@ export async function runJoin({ ref, create, profile, sound = true }) {
     onText: say,
     onFull: () => quit(1)
   });
-  say('（文字を打って Enter でひとことを送る。/who 参加者　/mute 音を消す・戻す　/q 退出）');
+  say('（文字を打って Enter でひとことを送る。/mic マイク オン/オフ　/who 参加者　/mute 音を消す・戻す　/q 退出）');
 
   let quitting = false;
   async function quit(code = 0) {
@@ -91,11 +91,12 @@ export async function runJoin({ ref, create, profile, sound = true }) {
     if (s === '/q' || s === '/quit') return quit(0);
     if (s === '/who') {
       const ms = session.members();
-      say(`👥 ${ms.length}人：${ms.map(m => m.label + (m.self ? '' : m.muted ? '🔇' : m.talking ? '🔊' : '')).join(' ')}`);
+      say(`👥 ${ms.length}人：${ms.map(m => m.label + (m.muted ? '🔇' : m.talking ? '🔊' : '')).join(' ')}`);
       return;
     }
     if (s === '/mute') return session.toggleMute();
-    if (s.startsWith('/')) { say('（使えるのは /who /mute /q です）'); return; }
+    if (s === '/mic') return session.toggleTalk();
+    if (s.startsWith('/')) { say('（使えるのは /mic /who /mute /q です）'); return; }
     if (s) session.say(s);
   });
 }

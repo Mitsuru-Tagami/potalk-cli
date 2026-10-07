@@ -42,7 +42,7 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
 
     const setHelp = typing => help.setContent(typing
       ? '  Enter: ひとことを送る（60 文字まで） | Esc: やめる'
-      : '  i / Enter: ひとことを書く | m: 音を消す・戻す | j/k: お知らせを遡る | q: 退出してロビーへ');
+      : '  t: マイク オン/オフ | i / Enter: ひとこと | m: 音を消す・戻す | j/k: 遡る | q: 退出してロビーへ');
     setHelp(false);
 
     let session = null, closing = false;
@@ -53,10 +53,11 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
       const ms = session.members();
       const sp = session.speaker;
       const sound = session.room.bcast ? '🔇 配信部屋（音はまだ）' : !sp ? '🔇 音なし' : !sp.available ? '🔇 音が出せません' : sp.muted ? '🔇 消音中' : '🔈 音あり';
-      frame.setLabel(tuiText(` ${session.label()} ─── ${sound} `));
+      const micState = !session.room.canTalk ? '' : session.micOn ? ' ─── 🎙 マイク オン' : ' ─── 🔇 マイク オフ（t で話す）';
+      frame.setLabel(tuiText(` ${session.label()} ─── ${sound}${micState} `));
       const lines = [` 参加者（${ms.length}人）`];
       for (const m of ms) {
-        const mark = m.self ? '' : m.muted ? '🔇' : m.talking ? '🔊' : '';
+        const mark = m.muted ? '🔇' : m.talking ? '🔊' : '';
         lines.push('   ' + padWidth(tuiText(m.label), 30) + ' ' + mark);
       }
       members.setContent(lines.join('\n'));
@@ -91,6 +92,7 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
     const openInput = () => { if (typing() || Date.now() - submittedAt < 150) return; setHelp(true); input.focus(); screen.render(); };
     const keys = [
       ['m', () => { if (!typing()) session.toggleMute(); }],
+      ['t', () => { if (!typing()) session.toggleTalk(); }],
       ['q', () => { if (!typing()) close(); }],
       ['i', openInput],
       ['enter', openInput]
@@ -103,7 +105,8 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
       input.clearValue(); setHelp(false); log.focus();
       if (s === '/q' || s === '/quit') return close();
       if (s === '/mute') return session.toggleMute();
-      if (s.startsWith('/')) say('（使えるのは /mute と /q です）');
+      if (s === '/mic') return session.toggleTalk();
+      if (s.startsWith('/')) say('（使えるのは /mic /mute /q です）');
       else if (s) session.say(s);
       screen.render();
     });
