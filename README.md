@@ -14,7 +14,7 @@ GoやRustといった渋い言語も検討しましたが、動いている元�
 
 ## 使い方
 
-Node.js 18 以上が必要です。部屋の声を聞くには [sox](https://sourceforge.net/projects/sox/) も入れてください（`brew install sox` / `apt install sox`）。
+Node.js 20.6 以上が必要です。部屋の声を聞くには [sox](https://sourceforge.net/projects/sox/) も入れてください（`brew install sox` / `apt install sox`）。
 
 ```bash
 npm install
@@ -52,6 +52,15 @@ po-talk のブラウザ版と同じロビー・同じ Nostr リレーに乗り�
 - 配信部屋の声は、po-talk では「配信者が許可した人（署名つきの名簿）」の分だけを受け取る側で鳴らす決まりです。
   CLI はまだ名簿を確かめられないので、配信部屋では何も鳴らしません。
 - 部屋にいる間は、po-talk と同じくロビーへ在室を告知します（秘密の部屋を作れないようにする po-talk の決まり）。
+
+## 開発
+
+```bash
+npm test          # 自動テスト（ネットワークは使いません）
+```
+
+PR を出すと、GitHub Actions で Mac と Linux、Node 20・22・24 のテストが走ります。
+`trystero`・`@roamhq/wrtc`・`blessed` は、内部の作りに頼った回避策があるので版を固定しています（`lib/polyfill.mjs`・`lib/tui.mjs`）。上げるときは `npm test` で確かめてください。
 
 ## 作者
 
