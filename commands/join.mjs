@@ -75,12 +75,15 @@ export async function runJoin({ ref, create, profile, sound = true }) {
   let quitting = false;
   async function quit(code = 0) {
     if (quitting) return; quitting = true;
+    setTimeout(() => process.exit(code), 4000).unref();   // 何かで詰まっても必ず終わる
     say('退出します…');
     await session.leave();
     await lobby.leave();
     process.exit(code);
   }
-  process.on('SIGINT', () => quit(0));
+  // ターミナルのウィンドウを閉じた（SIGHUP）・終了を頼まれた（SIGTERM）ときも、退出を知らせてから終わる。
+  // 知らせずに消えると、ほかの人のロビーに部屋が十数秒〜30 秒残る（相手が気づくまで）
+  for (const sig of ['SIGINT', 'SIGHUP', 'SIGTERM']) process.on(sig, () => quit(0));
   rl.on('SIGINT', () => quit(0));
   rl.on('close', () => quit(0));
   rl.on('line', line => {

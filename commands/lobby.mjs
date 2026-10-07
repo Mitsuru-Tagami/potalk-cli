@@ -137,11 +137,18 @@ export async function runLobby({ profile, notice = '', sound = true } = {}) {
   // 部屋にいるときの q は部屋の画面が受け持つ（退出してロビーへ）。Ctrl-C は退出してから終了する。
   // 絞り込みの入力中は q も r もただの文字
   screen.key(['q'], () => { if (!current && !searching()) process.exit(0); });
-  screen.key(['C-c'], async () => {
+  // 部屋にいれば退出を知らせてから終わる。Ctrl-C のほか、ターミナルのウィンドウを閉じた（SIGHUP）・
+  // 終了を頼まれた（SIGTERM）ときも同じ（知らせずに消えると、ほかの人のロビーに部屋がしばらく残る）
+  let quitting = false;
+  const quitApp = async () => {
+    if (quitting) return; quitting = true;
+    setTimeout(() => process.exit(0), 4000).unref();   // 何かで詰まっても必ず終わる
     if (current) await current.close();
     await lobby?.leave();
     process.exit(0);
-  });
+  };
+  screen.key(['C-c'], quitApp);
+  for (const sig of ['SIGHUP', 'SIGTERM']) process.on(sig, quitApp);
   screen.key(['r'], () => {
     if (current || searching()) return;
     note = '';
