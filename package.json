@@ -5,23 +5,26 @@
   "main": "ptk.mjs",
   "scripts": {
     "start": "node ptk.mjs",
-    "list": "node ptk.mjs list"
+    "list": "node ptk.mjs list",
+    "test": "node --test test/"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
-    "@roamhq/wrtc": "^0.10.0",
-    "blessed": "^0.1.81",
-    "nostr-tools": "^2.25.2",
-    "trystero": "^0.25.4",
+    "@roamhq/wrtc": "0.10.0",
+    "blessed": "0.1.81",
+    "trystero": "0.25.4",
     "ws": "^8.22.0"
   },
   "bin": {
     "ptk": "ptk.mjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.6"
+  },
+  "devDependencies": {
+    "nostr-tools": "^2.25.2"
   }
 }
