@@ -91,7 +91,7 @@ export async function runJoin({ ref, create, profile, sound = true }) {
     if (s === '/q' || s === '/quit') return quit(0);
     if (s === '/who') {
       const ms = session.members();
-      say(`👥 ${ms.length}人：${ms.map(m => m.label + (m.muted ? '🔇' : m.talking ? '🔊' : '')).join(' ')}`);
+      say(`👥 ${ms.length}人：${ms.map(m => m.label + (m.muted ? '🔇' : m.talking ? '🔊' : '') + (m.owner ? '📣' : m.speaker ? '🎙' : '')).join(' ')}`);
       return;
     }
     if (s.startsWith('/') && session.command(s)) return;

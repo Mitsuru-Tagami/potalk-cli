@@ -52,13 +52,14 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
       if (!session) return;
       const ms = session.members();
       const sp = session.speaker;
-      const sound = session.room.bcast ? '🔇 配信部屋（音はまだ）' : !sp ? '🔇 音なし' : !sp.available ? '🔇 音が出せません' : sp.muted ? '🔇 消音中' : '🔈 音あり';
+      const sound = (session.room.bcast ? '📣 配信部屋 ' : '') + (!sp ? '🔇 音なし' : !sp.available ? '🔇 音が出せません' : sp.muted ? '🔇 消音中' : '🔈 音あり');
       const micState = !session.room.canTalk ? '' : session.micOn ? ' ─── 🎙 マイク オン' : ' ─── 🔇 マイク オフ（t で話す）';
       frame.setLabel(tuiText(` ${session.label()} ─── ${sound}${micState} `));
       const lines = [` 参加者（${ms.length}人）`];
       for (const m of ms) {
         const mark = m.muted ? '🔇' : m.talking ? '🔊' : '';
-        lines.push('   ' + padWidth(tuiText(m.label), 30) + ' ' + mark);
+        const role = m.owner ? '📣' : m.speaker ? '🎙' : '';   // 配信部屋：配信者・話してよい人
+        lines.push('   ' + padWidth(tuiText(m.label), 30) + ' ' + mark + role);
       }
       members.setContent(lines.join('\n'));
       screen.render();
