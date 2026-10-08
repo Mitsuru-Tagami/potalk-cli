@@ -41,7 +41,7 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
     const help = blessed.box({ parent: frame, bottom: 1, left: 1, width: '100%-4', height: 1, style: { fg: 'gray' } });
 
     const setHelp = typing => help.setContent(typing
-      ? '  Enter: ひとことを送る（60 文字まで） | Esc: やめる'
+      ? '  Enter: 送る（ひとことは 60 文字まで。/tag 話題　/list ほかの部屋 も打てる） | Esc: やめる'
       : '  t: マイク オン/オフ | i / Enter: ひとこと | m: 音を消す・戻す | j/k: 遡る | q: 退出してロビーへ');
     setHelp(false);
 
@@ -104,9 +104,8 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
       submittedAt = Date.now();
       input.clearValue(); setHelp(false); log.focus();
       if (s === '/q' || s === '/quit') return close();
-      if (s === '/mute') return session.toggleMute();
-      if (s === '/mic') return session.toggleTalk();
-      if (s.startsWith('/')) say('（使えるのは /mic /mute /q です）');
+      if (s.startsWith('/') && session.command(s)) { screen.render(); return; }
+      if (s.startsWith('/')) say('（使えるのは /tag /notag /list /mic /mute /q です）');
       else if (s) session.say(s);
       screen.render();
     });
