@@ -41,7 +41,7 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
     const help = blessed.box({ parent: frame, bottom: 1, left: 1, width: '100%-4', height: 1, style: { fg: 'gray' } });
 
     const setHelp = typing => help.setContent(typing
-      ? '  Enter: ひとことを送る（60 文字まで） | Esc: やめる'
+      ? '  Enter: 送る（ひとことは 60 文字まで。/tag 話題　/list ほかの部屋 も打てる） | Esc: やめる'
       : '  t: マイク オン/オフ | i / Enter: ひとこと | m: 音を消す・戻す | j/k: 遡る | q: 退出してロビーへ');
     setHelp(false);
 
@@ -52,13 +52,14 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
       if (!session) return;
       const ms = session.members();
       const sp = session.speaker;
-      const sound = session.room.bcast ? '🔇 配信部屋（音はまだ）' : !sp ? '🔇 音なし' : !sp.available ? '🔇 音が出せません' : sp.muted ? '🔇 消音中' : '🔈 音あり';
+      const sound = (session.room.bcast ? '📣 配信部屋 ' : '') + (!sp ? '🔇 音なし' : !sp.available ? '🔇 音が出せません' : sp.muted ? '🔇 消音中' : '🔈 音あり');
       const micState = !session.room.canTalk ? '' : session.micOn ? ' ─── 🎙 マイク オン' : ' ─── 🔇 マイク オフ（t で話す）';
       frame.setLabel(tuiText(` ${session.label()} ─── ${sound}${micState} `));
       const lines = [` 参加者（${ms.length}人）`];
       for (const m of ms) {
         const mark = m.muted ? '🔇' : m.talking ? '🔊' : '';
-        lines.push('   ' + padWidth(tuiText(m.label), 30) + ' ' + mark);
+        const role = m.owner ? '📣' : m.speaker ? '🎙' : '';   // 配信部屋：配信者・話してよい人
+        lines.push('   ' + padWidth(tuiText(m.label), 30) + ' ' + mark + role);
       }
       members.setContent(lines.join('\n'));
       screen.render();
@@ -104,9 +105,8 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
       submittedAt = Date.now();
       input.clearValue(); setHelp(false); log.focus();
       if (s === '/q' || s === '/quit') return close();
-      if (s === '/mute') return session.toggleMute();
-      if (s === '/mic') return session.toggleTalk();
-      if (s.startsWith('/')) say('（使えるのは /mic /mute /q です）');
+      if (s.startsWith('/') && session.command(s)) { screen.render(); return; }
+      if (s.startsWith('/')) say('（使えるのは /tag /notag /list /mic /mute /q です）');
       else if (s) session.say(s);
       screen.render();
     });

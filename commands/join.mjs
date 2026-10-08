@@ -70,7 +70,7 @@ export async function runJoin({ ref, create, profile, sound = true }) {
     onText: say,
     onFull: () => quit(1)
   });
-  say('（文字を打って Enter でひとことを送る。/mic マイク オン/オフ　/who 参加者　/mute 音を消す・戻す　/q 退出）');
+  say('（文字を打って Enter でひとことを送る。/mic マイク オン/オフ　/tag 話題を変える　/list ほかの部屋　/who 参加者　/mute 音を消す・戻す　/q 退出）');
 
   let quitting = false;
   async function quit(code = 0) {
@@ -91,12 +91,11 @@ export async function runJoin({ ref, create, profile, sound = true }) {
     if (s === '/q' || s === '/quit') return quit(0);
     if (s === '/who') {
       const ms = session.members();
-      say(`👥 ${ms.length}人：${ms.map(m => m.label + (m.muted ? '🔇' : m.talking ? '🔊' : '')).join(' ')}`);
+      say(`👥 ${ms.length}人：${ms.map(m => m.label + (m.muted ? '🔇' : m.talking ? '🔊' : '') + (m.owner ? '📣' : m.speaker ? '🎙' : '')).join(' ')}`);
       return;
     }
-    if (s === '/mute') return session.toggleMute();
-    if (s === '/mic') return session.toggleTalk();
-    if (s.startsWith('/')) { say('（使えるのは /mic /who /mute /q です）'); return; }
+    if (s.startsWith('/') && session.command(s)) return;
+    if (s.startsWith('/')) { say('（使えるのは /mic /tag /list /who /mute /q です）'); return; }
     if (s) session.say(s);
   });
 }

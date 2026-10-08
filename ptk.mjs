@@ -10,16 +10,18 @@ const HELP = `ぽっと通話 CLI (ptk)
   ptk join  | 参加する [招待リンク|部屋ID|部屋名の一部]
                       部屋に入る（引数なしならロビーから番号で選ぶ。
                       名前の一部なら、合う部屋が 1 つでそのまま入り、複数なら番号で選ぶ）
-  ptk create | 部屋をつくる 部屋名
-                      新しい部屋を作って入る
+  ptk create | 部屋をつくる [部屋名]
+                      新しい部屋を作って入る（部屋名を省くと「あなたの名前の部屋」）
   ptk help  | --help  このヘルプ
 
   lobby / join / create のオプション: --name 名前  --emoji 絵文字
-                              一度付ければ覚えて、次からはそれを使う（最初は ゲスト・💻）
+                              一度付ければ覚えて、次からはそれを使う
+                              （最初は「深煎りキリマンジャロ」のようなコーヒーの名前を自動で付ける）
                               --no-sound 音を鳴らさない（鳴らすには sox が必要）
   部屋の中では、文字を打って Enter でひとことを送る（TUI は i で入力欄へ）。
   マイクは入るときオフ。TUI は t、行表示は /mic でオン/オフ（ヘッドホン推奨）。
-  /who 参加者　/mute 音を消す・戻す　/q 退出。
+  /tag 話題を変える（/notag で消す）　/list ほかの部屋を見る
+  /who 参加者（行表示）　/mute 音を消す・戻す　/q 退出。
 `;
 
 // `ptk --name 名前` のようにオプションだけなら、コマンドは lobby（--help / -h はそのまま help へ）
@@ -63,10 +65,11 @@ switch (cmd) {
     const creating = cmd === 'create' || cmd === '部屋をつくる';
     const FLAGS = ['--no-sound'];   // 値を取らないオプション
     const arg = rest.find((a, i) => !a.startsWith('--') && !(rest[i - 1]?.startsWith('--') && !FLAGS.includes(rest[i - 1])));
-    if (creating && !arg) { console.error('部屋名を指定してください: ptk create 部屋名'); process.exit(1); }
     const { profile, notice } = await profileFromOpts();
     if (notice) console.error(notice);
-    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create: creating ? arg : null, profile, sound: !rest.includes('--no-sound') });
+    // 部屋名を付けずに作るときは「名前の部屋」（本家の defaultRoom と同じ）
+    const create = creating ? (arg || `${profile.name}の部屋`) : null;
+    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create, profile, sound: !rest.includes('--no-sound') });
     break;
   }
   default:
