@@ -9,9 +9,6 @@
  */
 
 // ptk（引数なし）/ ptk lobby ── ロビーを TUI で表示する
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import blessed from 'blessed';
 import { openLobby, matchRoom } from '../lib/lobby.mjs';
 import { padWidth, tuiText } from '../lib/text.mjs';
@@ -26,15 +23,12 @@ import { fixBlessedWidths } from '../lib/tui.mjs';
  * @param {boolean} [options.sound=true] - 音声を鳴らすかどうか（スピーカー有効化）
  */
 export async function runLobby({ profile, notice = '', sound = true } = {}) {
-  // ログで TUI が崩れないよう、console とエラーはファイルへ逃がす
-  const logPath = path.join(os.tmpdir(), 'ptk-debug.log');
-  const logStream = fs.createWriteStream(logPath, { flags: 'a' });
-  const fmt = args => args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-  process.on('uncaughtException', err => logStream.write('[UncaughtException] ' + err.stack + '\n'));
-  process.on('unhandledRejection', reason => logStream.write('[UnhandledRejection] ' + reason + '\n'));
-  console.log = (...args) => logStream.write(fmt(args) + '\n');
-  console.error = (...args) => logStream.write('[ERROR] ' + fmt(args) + '\n');
-  console.warn = (...args) => logStream.write('[WARN] ' + fmt(args) + '\n');
+  // ログで TUI が崩れないよう、標準出力を無効化（デバッグ用のファイル出力は役目を終えたため削除）
+  process.on('uncaughtException', () => {});
+  process.on('unhandledRejection', () => {});
+  console.log = () => {};
+  console.error = () => {};
+  console.warn = () => {};
 
   // --- TUI Setup ---
   fixBlessedWidths();   // 絵文字を 2 マスと数えさせる（ずれて文字が食われるのを防ぐ）
