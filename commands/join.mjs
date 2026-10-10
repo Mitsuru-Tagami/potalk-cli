@@ -6,6 +6,7 @@ import { parseRoomRef, newRoomId, isRoomRef } from '../lib/room.mjs';
 import { enterRoom } from '../lib/session.mjs';
 import { capText } from '../lib/text.mjs';
 import { ROOM_MAX } from '../lib/config.mjs';
+import { completeRoomCommand } from '../lib/commands.mjs';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 const say = s => console.log(`${hhmm()}  ${s}`);
@@ -55,7 +56,7 @@ export async function runJoin({ ref, create, profile, sound = true }) {
   // trystero はリレーの不調（rate limit など）を console.warn に出す。よくあることなので普段は隠す
   const warn = console.warn;
   console.warn = (...a) => { if (process.env.PTK_DEBUG || !String(a[0]).startsWith('Trystero:')) warn(...a); };
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, completer: completeRoomCommand });
   const lobby = openLobby();
 
   let target;
@@ -70,7 +71,7 @@ export async function runJoin({ ref, create, profile, sound = true }) {
     onText: say,
     onFull: () => quit(1)
   });
-  say('（文字を打って Enter でひとことを送る。/mic マイク オン/オフ　/tag 話題を変える　/list ほかの部屋　/who 参加者　/mute 音を消す・戻す　/q 退出）');
+  say('（文字を打って Enter でひとことを送る。Tab: コマンド補完　/mic マイク　/tag 話題　/list 部屋一覧　/who 参加者　/mute 音　/cp URLコピー　/q 退出）');
 
   let quitting = false;
   async function quit(code = 0) {
@@ -89,13 +90,8 @@ export async function runJoin({ ref, create, profile, sound = true }) {
   rl.on('line', line => {
     const s = line.trim();
     if (s === '/q' || s === '/quit') return quit(0);
-    if (s === '/who') {
-      const ms = session.members();
-      say(`👥 ${ms.length}人：${ms.map(m => m.label + (m.muted ? '🔇' : m.talking ? '🔊' : '') + (m.owner ? '📣' : m.speaker ? '🎙' : '')).join(' ')}`);
-      return;
-    }
     if (s.startsWith('/') && session.command(s)) return;
-    if (s.startsWith('/')) { say('（使えるのは /mic /tag /list /who /mute /q です）'); return; }
+    if (s.startsWith('/')) { say('（使えるのは /help /tag /notag /list /who /mic /mute /cp /copy /q です）'); return; }
     if (s) session.say(s);
   });
 }
