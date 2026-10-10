@@ -1,5 +1,14 @@
 #!/usr/bin/env node
-// ptk ── ぽっと通話 CLI のエントリーポイント（コマンドの振り分け）
+/**
+ * @fileoverview ptk ── ぽっと通話 CLI のエントリーポイント（コマンドの振り分け）
+ * CLIの起動時引数をパースし、各コマンド（lobby, list, join, create）へディスパッチします。
+ *
+ * 【今後の拡張ポイント】
+ * - Commander.jsやYargsなどのCLI引数解析ライブラリの導入による高度なオプション管理
+ * - 独自設定ファイル（~/.config/ptk/config.jsonなど）からのデフォルト設定読み込み
+ * - /helpの多言語対応やカラー化
+ */
+
 
 const HELP = `
 🫖  POT-TALK CLI (ptk) - ハッカーのためのP2P音声通話

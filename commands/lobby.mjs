@@ -1,3 +1,13 @@
+/**
+ * @fileoverview ロビー画面（Lobby）のTUI描画および制御ロジックを管理するモジュール。
+ * Blessedライブラリを用いて、CUI上にリッチなインタラクティブUI（部屋の一覧、絞り込み、再読み込みなど）を提供します。
+ *
+ * 【今後の拡張ポイント】
+ * - ソート機能（参加人数順、話題の新着順など）
+ * - ページネーション（部屋数が増加した際のスクロール負荷軽減）
+ * - TURNサーバー状態など、より詳細なネットワーク状況のステータス表示
+ */
+
 // ptk（引数なし）/ ptk lobby ── ロビーを TUI で表示する
 import fs from 'fs';
 import os from 'os';
@@ -8,6 +18,13 @@ import { padWidth, tuiText } from '../lib/text.mjs';
 import { showRoom } from './roomview.mjs';
 import { fixBlessedWidths } from '../lib/tui.mjs';
 
+/**
+ * ロビーのTUI画面を起動し、メインループを開始します。
+ * @param {object} [options] - 起動オプション
+ * @param {{name:string, emoji:string}} [options.profile] - ユーザーのプロフィール情報
+ * @param {string} [options.notice=''] - 起動時に画面上部に表示するお知らせテキスト
+ * @param {boolean} [options.sound=true] - 音声を鳴らすかどうか（スピーカー有効化）
+ */
 export async function runLobby({ profile, notice = '', sound = true } = {}) {
   // ログで TUI が崩れないよう、console とエラーはファイルへ逃がす
   const logPath = path.join(os.tmpdir(), 'ptk-debug.log');
@@ -74,6 +91,9 @@ export async function runLobby({ profile, notice = '', sound = true } = {}) {
   let note = notice;    // 画面の頭に出すひとこと（名乗りを覚えた・部屋が満員だった等）
   let filter = '';      // 絞り込みの文字（空なら全部）
 
+  /**
+   * 現在のロビー状態に基づいてTUI画面を再描画します。
+   */
   function render() {
     if (!lobby || current) return;
     shown = lobby.rooms().filter(r => matchRoom(r, filter));
@@ -91,6 +111,9 @@ export async function runLobby({ profile, notice = '', sound = true } = {}) {
     screen.render();
   }
 
+  /**
+   * ロビーのデータ取得処理を開始（または再起動）します。
+   */
   async function start() {
     if (lobby) { const old = lobby; lobby = null; await old.leave(); }
     lobby = openLobby({ onChange: render, onPeer: render });

@@ -1,3 +1,13 @@
+/**
+ * @fileoverview TUI上での部屋画面（チャットおよび通話UI）の描画・制御ロジック。
+ * ロビーで部屋を選択した後、または直接部屋を作成・指定した際にこの画面に遷移します。
+ *
+ * 【今後の拡張ポイント】
+ * - ログ画面（チャット履歴）の保存・エクスポート機能
+ * - ユーザー選択・メンション（特定の参加者を指定したアクション）
+ * - 話している人の音声波形やインジケータのリッチ化
+ */
+
 // TUI の部屋画面。ロビーで部屋を選んで Enter → ここ。q で退出するとロビーへ戻る。
 //   ┌─ 部屋名 ──────────── 🔈 音あり ─┐
 //   │ 参加者（話している人に 🔊）        │
@@ -15,9 +25,16 @@ const MEMBERS_H = 10;   // 参加者の段の高さ（定員 8 人＋見出し�
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 
 /**
- * 部屋に入って画面を出す。
+ * 部屋に入室し、TUI画面を描画・制御します。
+ * @param {object} screen - blessedのscreenインスタンス
+ * @param {object} o - オプション
+ * @param {{roomId:string, name?:string}} o.target - 対象の部屋情報
+ * @param {{name:string, emoji:string}} o.profile - 自身のプロフィール
+ * @param {object} o.lobby - ロビーオブジェクト
+ * @param {boolean} o.sound - 音声を有効にするか
  * @returns {{ done: Promise<string|undefined>, close: () => Promise<void> }}
- *   done は退出したら（q・満員）resolve する。close は外から退出させる（Ctrl-C で終了するとき）
+ *   done は退出（q・満員）時にresolveするPromise。
+ *   close は外部（Ctrl-Cなど）から強制的に退出・画面破棄させる関数。
  */
 export function showRoom(screen, { target, profile, lobby, sound }) {
   let closeRoom;
@@ -48,6 +65,9 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
     let session = null, closing = false;
     const say = text => { log.log(tuiText(`${hhmm()}  ${text}`)); screen.render(); };
 
+    /**
+     * 参加者リストやステータス表示を更新・再描画します。
+     */
     function draw() {
       if (!session) return;
       const ms = session.members();
@@ -65,6 +85,10 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
       screen.render();
     }
 
+    /**
+     * 部屋から退出して画面を破棄します。
+     * @param {string} [note] - 退出理由（満員など）
+     */
     async function close(note) {
       if (closing) return; closing = true;
       clearInterval(ticker);
