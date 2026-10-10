@@ -12,7 +12,7 @@ const hhmm = () => new Date().toTimeString().slice(0, 5);
 const say = s => console.log(`${hhmm()}  ${s}`);
 const ask = (rl, q) => new Promise(r => rl.question(q, r));
 
-const roomLine = (r, i) => `  ${i + 1}. ${r.bo ? '📡 ' : ''}${r.rn || '（名前のない部屋）'}${r.tag ? ' #' + r.tag : ''}  ${r.people.length}人 ${r.people.map(p => p.emoji).join('')}`;
+const roomLine = (r, i) => `  ${i + 1}. ${r.bo ? '📡 ' : ''}${r.rn || '（名前のない部屋）'}${r.tag ? ' #' + r.tag : ''}  ${r.people.length}人 ${r.people.map(p => p.emoji + (p.stage || '')).join('')}`;
 
 // ロビーを眺めて部屋を集める。query があれば合うものだけ。
 // 最長 15 秒。ただし合う部屋が見つかってから 4 秒ふえなければ、そこで打ち切る（いつも 15 秒待たせない）
