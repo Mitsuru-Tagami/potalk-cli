@@ -106,7 +106,7 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
       input.clearValue(); setHelp(false); log.focus();
       if (s === '/q' || s === '/quit') return close();
       if (s.startsWith('/') && session.command(s)) { screen.render(); return; }
-      if (s.startsWith('/')) say('（使えるのは /tag /notag /list /mic /mute /q です）');
+      if (s.startsWith('/')) say('（使えるのは /help /tag /notag /list /mic /mute /q です）');
       else if (s) session.say(s);
       screen.render();
     });

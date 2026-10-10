@@ -1,27 +1,34 @@
 #!/usr/bin/env node
 // ptk ── ぽっと通話 CLI のエントリーポイント（コマンドの振り分け）
 
-const HELP = `ぽっと通話 CLI (ptk)
+const HELP = `
+🫖  POT-TALK CLI (ptk) - ハッカーのためのP2P音声通話
 
-使い方:
-  ptk                 ロビーを TUI で表示する（= ptk lobby）。部屋を選んで Enter で入る
-  ptk lobby | ロビー   同上
-  ptk list  | 一覧     通話中の部屋を一覧で出力する（--seconds N で待ち時間、既定 15）
-  ptk join  | 参加する [招待リンク|部屋ID|部屋名の一部]
-                      部屋に入る（引数なしならロビーから番号で選ぶ。
-                      名前の一部なら、合う部屋が 1 つでそのまま入り、複数なら番号で選ぶ）
-  ptk create | 部屋をつくる [部屋名]
-                      新しい部屋を作って入る（部屋名を省くと「あなたの名前の部屋」）
-  ptk help  | --help  このヘルプ
+【 起動コマンド 】
+  ptk                 ロビーを TUI で表示する（'ptk lobby' と同じ）
+  ptk lobby | ロビー  ロビー画面を開き、部屋を選んで入室する
+  ptk list  | 一覧    通話中の部屋を一覧で出力する（--seconds N で待ち時間、既定 15）
+  ptk join  | 参加    [招待リンク|部屋ID|部屋名の一部] を指定して部屋に入る
+                      （引数なしならロビーから番号で選択）
+  ptk create| 作成    [部屋名] 新しい部屋を作って入る（省略時は「あなたの名前の部屋」）
+  ptk help  | --help  このヘルプを表示する
 
-  lobby / join / create のオプション: --name 名前  --emoji 絵文字
-                              一度付ければ覚えて、次からはそれを使う
-                              （最初は「深煎りキリマンジャロ」のようなコーヒーの名前を自動で付ける）
-                              --no-sound 音を鳴らさない（鳴らすには sox が必要）
-  部屋の中では、文字を打って Enter でひとことを送る（TUI は i で入力欄へ）。
-  マイクは入るときオフ。TUI は t、行表示は /mic でオン/オフ（ヘッドホン推奨）。
-  /tag 話題を変える（/notag で消す）　/list ほかの部屋を見る
-  /who 参加者（行表示）　/mute 音を消す・戻す　/q 退出。
+【 オプション設定 】
+  --name <名前>       あなたの表示名を設定する
+  --emoji <絵文字>    あなたの絵文字を設定する
+                      ※一度設定すれば次回以降も記憶して使用します。
+                      ※未設定の初回起動時は「深煎りキリマンジャロ」のような
+                        コーヒー銘柄の匿名ネームが自動で割り当てられます！
+  --no-sound          音声を再生しない（ミュートモード。鳴らすにはsoxが必要）
+
+【 通話中のチャットコマンド (部屋内で使用) 】
+  /help         コマンド一覧とヘルプを表示する
+  /tag <話題>   部屋の話題（タグ）を変更する（/notag で消去）
+  /list         現在の部屋にいながら、他のアクティブな部屋一覧を見る
+  /who          現在の参加者一覧を表示する（行表示モード時）
+  /mic          マイクのON/OFFを切り替える (TUIでは 't' キー)
+  /mute         スピーカーのON/OFFを切り替える (TUIでは 'm' キー)
+  /q, /quit     部屋から退出する (TUIでは 'q' キー)
 `;
 
 // `ptk --name 名前` のようにオプションだけなら、コマンドは lobby（--help / -h はそのまま help へ）
@@ -60,9 +67,11 @@ switch (cmd) {
     break;
   case 'join':
   case '参加する':
+  case '参加':
   case 'create':
-  case '部屋をつくる': {
-    const creating = cmd === 'create' || cmd === '部屋をつくる';
+  case '部屋をつくる':
+  case '作成': {
+    const creating = cmd === 'create' || cmd === '部屋をつくる' || cmd === '作成';
     const FLAGS = ['--no-sound'];   // 値を取らないオプション
     const arg = rest.find((a, i) => !a.startsWith('--') && !(rest[i - 1]?.startsWith('--') && !FLAGS.includes(rest[i - 1])));
     const { profile, notice } = await profileFromOpts();
