@@ -20,6 +20,7 @@
 import blessed from 'blessed';
 import { enterRoom } from '../lib/session.mjs';
 import { padWidth, tuiText } from '../lib/text.mjs';
+import { roomCommandMatches, commonCommandPrefix } from '../lib/commands.mjs';
 
 const MEMBERS_H = 10;   // 参加者の段の高さ（定員 8 人＋見出し＋余白）
 const hhmm = () => new Date().toTimeString().slice(0, 5);
@@ -58,12 +59,31 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
     const help = blessed.box({ parent: frame, bottom: 1, left: 1, width: '100%-4', height: 1, style: { fg: 'gray' } });
 
     const setHelp = typing => help.setContent(typing
-      ? '  Enter: 送る（ひとことは 60 文字まで。/tag 話題　/list ほかの部屋 も打てる） | Esc: やめる'
+      ? '  Enter: 送る（60文字まで。Tab: コマンド補完。/tag 話題　/list 部屋一覧　/cp URLコピー） | Esc: やめる'
       : '  t: マイク オン/オフ | i / Enter: ひとこと | m: 音を消す・戻す | j/k: 遡る | q: 退出してロビーへ');
     setHelp(false);
 
     let session = null, closing = false;
     const say = text => { log.log(tuiText(`${hhmm()}  ${text}`)); screen.render(); };
+
+    // Blessed の Textbox は Tab を文字として挿入するため、入力処理の前に補完へ回す。
+    const inputListener = input._listener;
+    input._listener = function(ch, key) {
+      if (key.name === 'tab') return completeInput();
+      return inputListener.call(this, ch, key);
+    };
+    function completeInput() {
+      const typed = input.getValue();
+      const matches = roomCommandMatches(typed);
+      if (matches.length === 1) {
+        if (matches[0] !== typed) input.setValue(matches[0] + ' ');
+      } else if (matches.length > 1) {
+        const prefix = commonCommandPrefix(matches);
+        if (prefix.length > typed.length) input.setValue(prefix);
+        else say(`補完候補: ${matches.join('  ')}`);
+      }
+      screen.render();
+    }
 
     /**
      * 参加者リストやステータス表示を更新・再描画します。
@@ -130,7 +150,7 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
       input.clearValue(); setHelp(false); log.focus();
       if (s === '/q' || s === '/quit') return close();
       if (s.startsWith('/') && session.command(s)) { screen.render(); return; }
-      if (s.startsWith('/')) say('（使えるのは /help /tag /notag /list /mic /mute /q です）');
+      if (s.startsWith('/')) say('（使えるのは /help /tag /notag /list /who /mic /mute /cp /copy /q です）');
       else if (s) session.say(s);
       screen.render();
     });
