@@ -31,6 +31,7 @@ const HELP = `
                         コーヒー銘柄の匿名ネームが自動で割り当てられます！
   --no-sound          音声を再生しない（ミュートモード。鳴らすにはsoxが必要）
   --events-jsonl      受信コメントだけをJSON Linesで標準出力へ出し、画面表示は標準エラーへ
+  --tts <コマンド>    受信コメント本文を外部TTSコマンドへ非同期で渡す（例: 'espeak-ng -v ja'）
 
 【 通話中のチャットコマンド (部屋内で使用) 】
   /help         コマンド一覧とヘルプを表示する
@@ -52,7 +53,8 @@ const rest = bare ? argv : argv.slice(1);
 
 const opt = (name, def) => {
   const i = rest.indexOf(`--${name}`);
-  return i >= 0 && rest[i + 1] ? rest[i + 1] : def;
+  const value = i >= 0 ? rest[i + 1] : undefined;
+  return value && !value.startsWith('--') ? value : def;
 };
 
 // 名乗り。前回覚えたもの（~/.config/ptk/profile.json）に --name / --emoji を重ね、付いていれば覚え直す
@@ -70,7 +72,7 @@ const profileFromOpts = async () => {
 switch (cmd) {
   case 'lobby':
   case 'ロビー':
-    await (await import('./commands/lobby.mjs')).runLobby({ ...await profileFromOpts(), sound: !rest.includes('--no-sound') });
+    await (await import('./commands/lobby.mjs')).runLobby({ ...await profileFromOpts(), sound: !rest.includes('--no-sound'), tts: opt('tts', null) });
     break;
   case 'list':
   case '一覧':
@@ -94,7 +96,7 @@ switch (cmd) {
     if (notice) console.error(notice);
     // 部屋名を付けずに作るときは「名前の部屋」（本家の defaultRoom と同じ）
     const create = creating ? (arg || `${profile.name}の部屋`) : null;
-    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create, profile, cardManager, sound: !rest.includes('--no-sound'), eventsJsonl: rest.includes('--events-jsonl') });
+    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create, profile, cardManager, sound: !rest.includes('--no-sound'), eventsJsonl: rest.includes('--events-jsonl'), tts: opt('tts', null) });
     break;
   }
   default:
