@@ -21,6 +21,7 @@ import blessed from 'blessed';
 import { enterRoom } from '../lib/session.mjs';
 import { padWidth, tuiText } from '../lib/text.mjs';
 import { roomCommandMatches, commonCommandPrefix } from '../lib/commands.mjs';
+import { editCardInteractive } from './card-edit.mjs';
 
 const MEMBERS_H = 10;   // 参加者の段の高さ（定員 8 人＋見出し＋余白）
 const hhmm = () => new Date().toTimeString().slice(0, 5);
@@ -37,7 +38,7 @@ const hhmm = () => new Date().toTimeString().slice(0, 5);
  *   done は退出（q・満員）時にresolveするPromise。
  *   close は外部（Ctrl-Cなど）から強制的に退出・画面破棄させる関数。
  */
-export function showRoom(screen, { target, profile, lobby, sound }) {
+export function showRoom(screen, { target, profile, cardManager = null, lobby, sound }) {
   let closeRoom;
   const done = new Promise(resolve => {
     const frame = blessed.box({
@@ -63,7 +64,7 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
       : '  t: マイク オン/オフ | i / Enter: ひとこと | m: 音を消す・戻す | j/k: 遡る | q: 退出してロビーへ');
     setHelp(false);
 
-    let session = null, closing = false;
+    let session = null, closing = false, cardEditing = false, cardModal = null, cancelCardPrompt = null;
     const say = text => { log.log(tuiText(`${hhmm()}  ${text}`)); screen.render(); };
 
     // Blessed の Textbox は Tab を文字として挿入するため、入力処理の前に補完へ回す。
@@ -83,6 +84,40 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
         else say(`補完候補: ${matches.join('  ')}`);
       }
       screen.render();
+    }
+
+    function askCardPrompt(question) {
+      return new Promise(resolve => {
+        const modal = blessed.box({
+          parent: screen, top: 'center', left: 'center', width: '80%', height: 7,
+          border: { type: 'line' }, label: ' 名刺の編集 ',
+          style: { border: { fg: 'yellow' }, fg: 'white', bg: 'black' }, tags: false
+        });
+        cardModal = modal;
+        blessed.box({ parent: modal, top: 1, left: 1, width: '100%-4', height: 3, content: tuiText(question), style: { fg: 'white' } });
+        const field = blessed.textbox({ parent: modal, bottom: 1, left: 1, width: '100%-4', height: 1, inputOnFocus: true, style: { fg: 'white', bg: 'blue' } });
+        const finish = value => {
+          if (cardModal !== modal) return;
+          cardModal = null;
+          cancelCardPrompt = null;
+          modal.destroy();
+          if (!closing) log.focus();
+          screen.render();
+          resolve(value);
+        };
+        cancelCardPrompt = () => finish(null);
+        field.on('submit', value => finish(String(value ?? '')));
+        field.on('cancel', () => finish(null));
+        field.focus();
+        screen.render();
+      });
+    }
+
+    async function editCard() {
+      if (cardEditing) return;
+      cardEditing = true;
+      try { await editCardInteractive(cardManager, askCardPrompt, say); }
+      finally { cardEditing = false; if (!closing) { log.focus(); screen.render(); } }
     }
 
     /**
@@ -111,6 +146,7 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
      */
     async function close(note) {
       if (closing) return; closing = true;
+      cancelCardPrompt?.();
       clearInterval(ticker);
       keys.forEach(([k, fn]) => screen.unkey(k, fn));
       say('退出します…');
@@ -122,17 +158,18 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
     }
 
     session = enterRoom({
-      target, profile, lobby, sound,
+      target, profile, cardManager, lobby, sound,
       onText: say,
       onChange: draw,
-      onFull: cap => close(`満員でした（最大 ${cap}人）`)
+      onFull: cap => close(`満員でした（最大 ${cap}人）`),
+      onCardEdit: editCard
     });
     // 話している印（🔊）は声の大きさで変わるので、出来事を待たずに描き直す
     const ticker = setInterval(draw, 400);
 
     // ── キー操作 ── 画面全体に付けて、退出時に外す（要素に付けると子にフォーカスがあるとき届かない）。
     // 入力欄にいる間は、1文字キー（m, q）を拾わない
-    const typing = () => screen.focused === input;
+    const typing = () => cardEditing || screen.focused === input;
     let submittedAt = 0;   // 決定の Enter が、そのまま「入力欄を開く」にも届いてしまわないように
     const openInput = () => { if (typing() || Date.now() - submittedAt < 150) return; setHelp(true); input.focus(); screen.render(); };
     const keys = [
@@ -150,7 +187,7 @@ export function showRoom(screen, { target, profile, lobby, sound }) {
       input.clearValue(); setHelp(false); log.focus();
       if (s === '/q' || s === '/quit') return close();
       if (s.startsWith('/') && session.command(s)) { screen.render(); return; }
-      if (s.startsWith('/')) say('（使えるのは /help /tag /notag /list /who /mic /mute /cp /copy /q です）');
+      if (s.startsWith('/')) say('（使えるのは /help /tag /notag /list /who /card /mic /mute /cp /copy /q です）');
       else if (s) session.say(s);
       screen.render();
     });

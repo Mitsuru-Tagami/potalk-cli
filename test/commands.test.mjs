@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { completeRoomCommand, commonCommandPrefix, roomCommandMatches } from '../lib/commands.mjs';
 import { copyRoomUrl } from '../lib/clipboard.mjs';
 
-test('roomCommandMatches：スラッシュコマンドを接頭辞で補完し、/cp と /copy も含む', () => {
-  assert.deepEqual(roomCommandMatches('/c'), ['/cp', '/copy']);
+test('roomCommandMatches：スラッシュコマンドを接頭辞で補完し、/card /cp /copyも含む', () => {
+  assert.deepEqual(roomCommandMatches('/c'), ['/card', '/cp', '/copy']);
   assert.deepEqual(roomCommandMatches('/co'), ['/copy']);
   assert.ok(roomCommandMatches('/').includes('/help'));
 });
