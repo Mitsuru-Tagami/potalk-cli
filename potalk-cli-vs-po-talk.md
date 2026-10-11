@@ -1,10 +1,10 @@
 # `potalk-cli` と本家 `po-talk.github.io` の差異
 
-- **比較日**: 2026-10-11（JST）
+- **比較日**: 2026-10-11（JST、Issue #25の実装反映時点）
 - **対象スナップショット**:
-  - CLI: [`Mitsuru-Tagami/potalk-cli`](https://github.com/Mitsuru-Tagami/potalk-cli)、HEAD `f960a2534e3839ffb51ea4d54c899cd1126c001a`（2026-10-10）
+  - CLI: [`Mitsuru-Tagami/potalk-cli`](https://github.com/Mitsuru-Tagami/potalk-cli) の `origin/main` HEAD `0a31a31`（PR #24マージ後）を基にした `feat/25-konomi-growth` の未コミット実装
   - 本家: [`po-talk/po-talk.github.io`](https://github.com/po-talk/po-talk.github.io)、HEAD `a90ab09087bcc30e19302e73a144cfe32efff122`（2026-10-10）
-- **調査方法**: README、仕様書、設定・通信・UI実装を静的に比較。実際に両クライアントを起動して通話するE2Eテストは行っていない。
+- **調査方法**: README、仕様書、設定・通信・UI実装を静的に比較し、CLI側は `npm test` と起動ヘルプを確認。実際に両クライアントを起動して通話するE2Eテストは行っていない。
 
 ## 要約
 
@@ -15,7 +15,7 @@
 1. **CLIはTURNを使わず直接接続するため、CLI利用者のIPアドレスが相手に見える。本家ブラウザ版の既定動作とはプライバシー特性が異なる。**
 2. **CLIの配信部屋対応は聞き役に限られる。** 配信開始、登壇許可、通話希望、おたより等の配信者向け操作は持たない。
 3. **CLIのリレー設定が本家の現行設定から1本ずれている。** CLIは `relay.mostr.pub`、本家は後継の `relay.ditto.pub` を指定している。6本は共通するため直ちに全接続が不可能とは限らないが、設定の同期と実地確認が望ましい。
-4. **木の芽の成長段階は本家だけの機能。** 本家は参加回数・累積滞在時間・利用日数で🌱から花・木へ成長するが、CLIは自分の段階を常に🌱として送り、相手の段階も取り込まない。
+4. **木の芽の記録保存先は別。** CLIにも本家と同じ成長条件を実装したが、記録はCLIのローカル設定ファイルに保存され、本家ブラウザの `localStorage` とは同期されない。
 
 ## 比較表
 
@@ -28,7 +28,7 @@
 | 通常部屋の音声 | WebRTC。`sox` の `rec` / `play` を使ってマイク・スピーカーを扱う。入室時はマイクOFF | ブラウザのWebRTC／マイク権限とブラウザ音声出力を利用 |
 | TURN・IP保護 | **TURNなし、STUN/直接接続**。CLI利用者のIPが相手に見える可能性がある | TURN資格情報が取れれば既定でTURN中継（`iceTransportPolicy: 'relay'`）。中継時は相手にブラウザ利用者のIPを見せない。取得失敗時はP2P/STUNにフォールバック |
 | 通常部屋の機能 | 参加者表示、音声の送受信、ひとこと、話題タグ、他の部屋の一覧、マイク／受話音の切替 | 上記に加えてリアクション、相手ごとの無視、通話音量、BGM、通知、小窓（PiP）、成長する絵文字、共有UI等 |
-| 木の芽（成長段階） | 成長記録なし。自分のプロフィールには固定で🌱を載せるが、受信した段階は保存・表示しない | 参加回数・累積滞在時間・利用日数で🌱→🌿→🌷/🌻→🌲/🌳。選んだアバター絵文字とは別の段階バッジを名前の横に表示。記録はブラウザごとのlocalStorage |
+| 木の芽（成長段階） | 本家と同じ閾値で🌱→🌿→🌷/🌻→🌲/🌳。記録は `~/.config/ptk/growth.json`、バッジはロビー・参加者一覧に表示。ブラウザとは記録を同期しない | 参加回数・累積滞在時間・利用日数で🌱→🌿→🌷/🌻→🌲/🌳。選んだアバター絵文字とは別の段階バッジを名前の横に表示。記録はブラウザごとのlocalStorage |
 | 配信部屋 | **聞き役として参加**。配信者と、配信者が許可した登壇者の音声を受信。配信者本人の署名済み名簿と `oath` 応答を検証してから配信者音声を再生 | 配信者として作成・配信可能。聞き役、登壇許可、通話希望、おたより、読み上げ等の配信機能を提供 |
 | プロフィール保存 | `~/.config/ptk/profile.json` に名前・絵文字を保存 | ブラウザ側に名前・絵文字等を保存 |
 | 実行環境・音声依存 | Node.js。音声を聞く／話すには `sox` が必要。CLI実装にエコーキャンセルはなく、READMEはヘッドホンを推奨 | マイク権限の使えるブラウザとHTTPS（またはlocalhost）が必要。iPhoneではSafariのタブ利用を推奨 |
@@ -72,7 +72,7 @@ CLIは配信部屋を通常部屋とは別の部屋ID形式として認識し、
 
 ただし、部屋内では `profile` アクションでプロフィール情報が交換される。CLIは部屋内で相手のプロフィールをメンバー情報として扱い、`/who` で表示する。本家のUIは聞き役の名前を画面上で伏せる一方、**この匿名性は通信プロトコル上でプロフィール名が存在しないことを意味しない**。CLIを含む別クライアントでは、同室ピアから受信したプロフィールが表示され得る点に注意が必要である。匿名性を強く保証する場合は、通信内容・表示内容双方の仕様を明確にする必要がある。
 
-### 5. 木の芽の成長段階は本家にあり、CLIでは🌱に固定
+### 5. 木の芽の成長段階は両方にあるが、記録は別管理
 
 本家で「使うほど絵文字が育つ」と案内されている機能は、**選択したプロフィールのアバター絵文字そのものを別の絵文字へ変える機能ではない**。アバターは選択したままで、参加者一覧やロビーでは名前の横に別の成長段階（🌱など）が付く。成長記録はブラウザの `localStorage` にある `pot-call-stats` に保存され、ブラウザごとに独立する。ブラウザデータを消すと育ち具合もリセットされる。
 
@@ -87,9 +87,9 @@ CLIは配信部屋を通常部屋とは別の部屋ID形式として認識し、
 
 花・木の分岐は平均滞在時間（累積分数÷参加回数）で決まり、**平均12分未満なら🌷／🌲、12分以上なら🌻／🌳**となる。つまり木の段階へ進むには「十分な通話量」だけでなく、複数日にわたる利用と一定回数の参加も必要で、1日で長時間使っても到達しない。
 
-CLI側は `lib/room.mjs` のプロフィール送信とロビー在室通知で `stage: '🌱'` を固定している。ローカル成長記録もなく、受信した相手プロフィールの `stage` は `profiles` に保存せず、ロビー受信側も段階を取り込まない。そのため、本家利用者の実際の成長段階はCLIから見えず、CLI利用者は本家から見ても🌱のままになる。本家側の手引きには🌲／🌳までの現行条件が説明されていないため、厳密な成長表はアプリ実装を根拠にした。
+CLIは `lib/growth.mjs` に本家と同じ計算条件を実装し、参加回数・利用日数・30秒単位の累積滞在時間を `~/.config/ptk/growth.json`（`XDG_CONFIG_HOME` 設定時はその配下）に保存する。プロフィール送信とロビーpresenceの両方で成長段階を共有し、TUI／`/who`／一覧表示にアバターとは別のバッジを表示する。受信した段階は既知の6種類だけを許可する。本家の `localStorage` とCLIのファイルは独立しているため、ブラウザで育てた記録はCLIへ引き継がれず、逆も同様。
 
-なお、本家の自分の段階は30秒ごとにローカル画面で再計算される一方、既存の部屋相手への `profile` 再送は参加時やマイク状態変更時などに限られている。したがって、長時間の通話中に段階が上がっても、同じ部屋にすでにいる相手の表示がすぐ更新されるとは限らない（ロビー在室通知は別経路で段階を送る）。
+本家では長時間の通話中に段階が上がっても、既存の部屋相手への `profile` 再送が参加時やマイク状態変更時などに限られる場合がある。CLIは滞在時間を加算する30秒ごとに段階を再計算し、プロフィールとロビーpresenceを再送するため、同室のCLI利用者にも更新を届ける。
 
 ## 確認できた設定・ドキュメント上の注意点
 
@@ -115,7 +115,8 @@ CLIの [`SPEC.md`](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3
 
 ## 参照した一次情報
 
-- [CLIリポジトリ](https://github.com/Mitsuru-Tagami/potalk-cli) — [README](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3839ffb51ea4d54c899cd1126c001a/README.md)、[設定](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3839ffb51ea4d54c899cd1126c001a/lib/config.mjs)、[部屋実装](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3839ffb51ea4d54c899cd1126c001a/lib/room.mjs)、[セッション実装](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3839ffb51ea4d54c899cd1126c001a/lib/session.mjs)、[package.json](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3839ffb51ea4d54c899cd1126c001a/package.json)、[CI](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3839ffb51ea4d54c899cd1126c001a/.github/workflows/test.yml)
+- [CLIリポジトリ](https://github.com/Mitsuru-Tagami/potalk-cli) — 初回差異調査時のスナップショット `f960a2534e3839ffb51ea4d54c899cd1126c001a` にある [README](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3839ffb51ea4d54c899cd1126c001a/README.md)、[設定](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3839ffb51ea4d54c899cd1126c001a/lib/config.mjs)、[部屋実装](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3839ffb51ea4d54c899cd1126c001a/lib/room.mjs)、[セッション実装](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3839ffb51ea4d54c899cd1126c001a/lib/session.mjs)、[package.json](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3839ffb51ea4d54c899cd1126c001a/package.json)、[CI](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3839ffb51ea4d54c899cd1126c001a/.github/workflows/test.yml)
+- Issue #25のローカル実装: [成長ロジック](lib/growth.mjs)、[プロフィール・presence同期](lib/room.mjs)、[ロビー受信](lib/lobby.mjs)、[単体テスト](test/growth.test.mjs)
 - [本家リポジトリ](https://github.com/po-talk/po-talk.github.io) — [README](https://github.com/po-talk/po-talk.github.io/blob/a90ab09087bcc30e19302e73a144cfe32efff122/README.md)、[アプリ本体](https://github.com/po-talk/po-talk.github.io/blob/a90ab09087bcc30e19302e73a144cfe32efff122/index.html)、[使い方](https://github.com/po-talk/po-talk.github.io/blob/a90ab09087bcc30e19302e73a144cfe32efff122/manual/index.html)、[プロトコル草稿](https://github.com/po-talk/po-talk.github.io/blob/a90ab09087bcc30e19302e73a144cfe32efff122/docs/PROTOCOL.md)
-- 成長段階の一次情報: [本家の成長計算・段階説明](https://github.com/po-talk/po-talk.github.io/blob/a90ab09087bcc30e19302e73a144cfe32efff122/index.html#L2075-L2095)、[参加時の記録](https://github.com/po-talk/po-talk.github.io/blob/a90ab09087bcc30e19302e73a144cfe32efff122/index.html#L5771-L5775)、[参加者への段階表示](https://github.com/po-talk/po-talk.github.io/blob/a90ab09087bcc30e19302e73a144cfe32efff122/index.html#L2309-L2317)、[ブラウザ保存の説明](https://github.com/po-talk/po-talk.github.io/blob/a90ab09087bcc30e19302e73a144cfe32efff122/about/index.html#L57-L63)、[CLIの固定🌱と受信処理](https://github.com/Mitsuru-Tagami/potalk-cli/blob/f960a2534e3839ffb51ea4d54c899cd1126c001a/lib/room.mjs#L237-L248)
+- 成長段階の一次情報: [本家の成長計算・段階説明](https://github.com/po-talk/po-talk.github.io/blob/a90ab09087bcc30e19302e73a144cfe32efff122/index.html#L2075-L2095)、[参加時の記録](https://github.com/po-talk/po-talk.github.io/blob/a90ab09087bcc30e19302e73a144cfe32efff122/index.html#L5771-L5775)、[参加者への段階表示](https://github.com/po-talk/po-talk.github.io/blob/a90ab09087bcc30e19302e73a144cfe32efff122/index.html#L2309-L2317)、[ブラウザ保存の説明](https://github.com/po-talk/po-talk.github.io/blob/a90ab09087bcc30e19302e73a144cfe32efff122/about/index.html#L57-L63)
 - [本家サービス](https://potalk.app/)

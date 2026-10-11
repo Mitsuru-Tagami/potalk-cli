@@ -39,7 +39,8 @@ test('別の nonce／部屋／公開鍵で作られた応答は通さない', as
   assert.equal(await verifyOathResponse(roomId, newOathNonce(), response, owner.publicKey), false);
   assert.equal(await verifyOathResponse('another-room', nonce, response, owner.publicKey), false);
   assert.equal(await verifyOathResponse(roomId, nonce, response, other.publicKey), false);
-  assert.equal(await verifyOathResponse(roomId, nonce, { ...response, sig: response.sig.slice(0, -1) + (response.sig.endsWith('A') ? 'B' : 'A') }, owner.publicKey), false);
+  const corrupted = { ...response, sig: `${response.sig[0] === 'A' ? 'B' : 'A'}${response.sig.slice(1)}` };
+  assert.equal(await verifyOathResponse(roomId, nonce, corrupted, owner.publicKey), false);
 });
 
 test('不正形式・別種の oath メッセージを拒否する', async () => {
