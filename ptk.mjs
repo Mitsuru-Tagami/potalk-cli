@@ -18,6 +18,7 @@ const HELP = `
   ptk lobby | ロビー  ロビー画面を開き、部屋を選んで入室する
   ptk list  | 一覧    通話中の部屋を一覧で出力する（--seconds N で待ち時間、既定 15）
   ptk join  | 参加    [招待リンク|部屋ID|部屋名の一部] を指定して部屋に入る
+                      （--events-jsonl で相手から受信したコメントをJSON Linesで出力）
                       （引数なしならロビーから番号で選択）
   ptk create| 作成    [部屋名] 新しい部屋を作って入る（省略時は「あなたの名前の部屋」）
   ptk help  | --help  このヘルプを表示する
@@ -29,6 +30,7 @@ const HELP = `
                       ※未設定の初回起動時は「深煎りキリマンジャロ」のような
                         コーヒー銘柄の匿名ネームが自動で割り当てられます！
   --no-sound          音声を再生しない（ミュートモード。鳴らすにはsoxが必要）
+  --events-jsonl      受信コメントだけをJSON Linesで標準出力へ出し、画面表示は標準エラーへ
 
 【 通話中のチャットコマンド (部屋内で使用) 】
   /help         コマンド一覧とヘルプを表示する
@@ -86,13 +88,13 @@ switch (cmd) {
   case '部屋をつくる':
   case '作成': {
     const creating = cmd === 'create' || cmd === '部屋をつくる' || cmd === '作成';
-    const FLAGS = ['--no-sound'];   // 値を取らないオプション
+    const FLAGS = ['--no-sound', '--events-jsonl'];   // 値を取らないオプション
     const arg = rest.find((a, i) => !a.startsWith('--') && !(rest[i - 1]?.startsWith('--') && !FLAGS.includes(rest[i - 1])));
     const { profile, notice, cardManager } = await profileFromOpts();
     if (notice) console.error(notice);
     // 部屋名を付けずに作るときは「名前の部屋」（本家の defaultRoom と同じ）
     const create = creating ? (arg || `${profile.name}の部屋`) : null;
-    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create, profile, cardManager, sound: !rest.includes('--no-sound') });
+    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create, profile, cardManager, sound: !rest.includes('--no-sound'), eventsJsonl: rest.includes('--events-jsonl') });
     break;
   }
   default:
