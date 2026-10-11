@@ -7,10 +7,11 @@ import { enterRoom } from '../lib/session.mjs';
 import { capText } from '../lib/text.mjs';
 import { ROOM_MAX } from '../lib/config.mjs';
 import { completeRoomCommand } from '../lib/commands.mjs';
+import { serializeReceivedChat } from '../lib/events.mjs';
 import { editCardInteractive } from './card-edit.mjs';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
-const say = s => console.log(`${hhmm()}  ${s}`);
+const makeSay = output => s => output.write(`${hhmm()}  ${s}\n`);
 const ask = (rl, q) => new Promise(r => rl.question(q, r));
 
 const roomLine = (r, i) => `  ${i + 1}. ${r.bo ? '📡 ' : ''}${r.rn || '（名前のない部屋）'}${r.tag ? ' #' + r.tag : ''}  ${r.people.length}人 ${r.people.map(p => p.emoji + (p.stage || '')).join('')}`;
@@ -31,15 +32,15 @@ async function scanLobby(lobby, query) {
 }
 
 // 候補から選ぶ。1 つならそのまま、複数なら番号で
-async function pick(rooms, rl, query) {
+async function pick(rooms, rl, query, output) {
   if (rooms.length === 1 && query) return rooms[0];
-  rooms.forEach((r, i) => console.log(roomLine(r, i)));
+  rooms.forEach((r, i) => output.write(`${roomLine(r, i)}\n`));
   const n = Number(await ask(rl, '入る部屋の番号: '));
   return rooms[n - 1] || null;
 }
 
 // 引数なし：ロビー全体から番号で。引数が部屋 ID でなければ：名前の一部として探す（Issue #6）
-async function pickFromLobby(lobby, rl, query = '') {
+async function pickFromLobby(lobby, rl, query = '', output = process.stdout) {
   console.error(query ? `🛰 「${query}」に合う部屋をロビーで探しています…（最長 15 秒）` : '🛰 ロビーを見ています…（15秒）');
   const rooms = await scanLobby(lobby, query);
   if (!rooms.length) {
@@ -48,28 +49,31 @@ async function pickFromLobby(lobby, rl, query = '') {
       : '通話中の部屋がありません。ptk create 部屋名 で作れます。');
     return null;
   }
-  const r = await pick(rooms, rl, query);
+  const r = await pick(rooms, rl, query, output);
   return r ? { roomId: r.id, name: r.rn } : undefined;   // undefined＝番号が外れた（null＝見つからなかった）
 }
 
-export async function runJoin({ ref, create, profile, cardManager = null, sound = true }) {
+export async function runJoin({ ref, create, profile, cardManager = null, sound = true, eventsJsonl = false }) {
   process.on('uncaughtException', e => { if (process.env.PTK_DEBUG) console.error('[error]', e?.message || e); });
   // trystero はリレーの不調（rate limit など）を console.warn に出す。よくあることなので普段は隠す
   const warn = console.warn;
   console.warn = (...a) => { if (process.env.PTK_DEBUG || !String(a[0]).startsWith('Trystero:')) warn(...a); };
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, completer: completeRoomCommand });
+  const humanOutput = eventsJsonl ? process.stderr : process.stdout;
+  const say = makeSay(humanOutput);
+  const rl = readline.createInterface({ input: process.stdin, output: humanOutput, completer: completeRoomCommand });
   const lobby = openLobby();
 
   let target;
   if (create) target = { roomId: newRoomId(), name: capText(create, ROOM_MAX) };
   else if (ref && isRoomRef(ref)) target = parseRoomRef(ref);
-  else target = await pickFromLobby(lobby, rl, ref || '');
+  else target = await pickFromLobby(lobby, rl, ref || '', humanOutput);
   // 見つからなかった理由は pickFromLobby が出している。番号の入力で外れたときだけここで言う
   if (!target?.roomId) { if (target !== null) console.error('部屋が決まりませんでした。'); await lobby.leave(); process.exit(1); }
 
   const session = enterRoom({
     target, profile, cardManager, lobby, sound,
     onText: say,
+    onReceivedChat: eventsJsonl ? event => process.stdout.write(`${serializeReceivedChat(event)}\n`) : undefined,
     onFull: () => quit(1),
     onCardEdit: editCard
   });
