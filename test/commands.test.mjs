@@ -6,6 +6,8 @@ import { copyRoomUrl } from '../lib/clipboard.mjs';
 test('roomCommandMatches：スラッシュコマンドを接頭辞で補完し、/card /cp /copyも含む', () => {
   assert.deepEqual(roomCommandMatches('/c'), ['/card', '/cp', '/copy']);
   assert.deepEqual(roomCommandMatches('/co'), ['/copy']);
+  assert.deepEqual(roomCommandMatches('/hb'), ['/hbk']);
+  assert.deepEqual(roomCommandMatches('/unh'), ['/unhbk']);
   assert.ok(roomCommandMatches('/').includes('/help'));
 });
 
