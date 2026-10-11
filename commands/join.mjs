@@ -7,6 +7,7 @@ import { enterRoom } from '../lib/session.mjs';
 import { capText } from '../lib/text.mjs';
 import { ROOM_MAX } from '../lib/config.mjs';
 import { completeRoomCommand } from '../lib/commands.mjs';
+import { editCardInteractive } from './card-edit.mjs';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 const say = s => console.log(`${hhmm()}  ${s}`);
@@ -51,7 +52,7 @@ async function pickFromLobby(lobby, rl, query = '') {
   return r ? { roomId: r.id, name: r.rn } : undefined;   // undefined＝番号が外れた（null＝見つからなかった）
 }
 
-export async function runJoin({ ref, create, profile, sound = true }) {
+export async function runJoin({ ref, create, profile, cardManager = null, sound = true }) {
   process.on('uncaughtException', e => { if (process.env.PTK_DEBUG) console.error('[error]', e?.message || e); });
   // trystero はリレーの不調（rate limit など）を console.warn に出す。よくあることなので普段は隠す
   const warn = console.warn;
@@ -67,13 +68,25 @@ export async function runJoin({ ref, create, profile, sound = true }) {
   if (!target?.roomId) { if (target !== null) console.error('部屋が決まりませんでした。'); await lobby.leave(); process.exit(1); }
 
   const session = enterRoom({
-    target, profile, lobby, sound,
+    target, profile, cardManager, lobby, sound,
     onText: say,
-    onFull: () => quit(1)
+    onFull: () => quit(1),
+    onCardEdit: editCard
   });
-  say('（文字を打って Enter でひとことを送る。Tab: コマンド補完　/mic マイク　/tag 話題　/list 部屋一覧　/who 参加者　/mute 音　/cp URLコピー　/q 退出）');
+  say('（文字を打って Enter でひとことを送る。Tab: コマンド補完　/mic マイク　/tag 話題　/list 部屋一覧　/who 参加者　/card 名刺　/mute 音　/cp URLコピー　/q 退出）');
 
   let quitting = false;
+  let cardEditing = false;
+  async function editCard() {
+    if (cardEditing) return;
+    cardEditing = true;
+    try {
+      await editCardInteractive(cardManager, prompt => new Promise(resolve => {
+        if (rl.closed) return resolve(null);
+        rl.question(prompt, resolve);
+      }), say);
+    } finally { cardEditing = false; }
+  }
   async function quit(code = 0) {
     if (quitting) return; quitting = true;
     setTimeout(() => process.exit(code), 4000).unref();   // 何かで詰まっても必ず終わる
@@ -88,10 +101,11 @@ export async function runJoin({ ref, create, profile, sound = true }) {
   rl.on('SIGINT', () => quit(0));
   rl.on('close', () => quit(0));
   rl.on('line', line => {
+    if (cardEditing) return;
     const s = line.trim();
     if (s === '/q' || s === '/quit') return quit(0);
     if (s.startsWith('/') && session.command(s)) return;
-    if (s.startsWith('/')) { say('（使えるのは /help /tag /notag /list /who /mic /mute /cp /copy /q です）'); return; }
+    if (s.startsWith('/')) { say('（使えるのは /help /tag /notag /list /who /card /mic /mute /cp /copy /q です）'); return; }
     if (s) session.say(s);
   });
 }

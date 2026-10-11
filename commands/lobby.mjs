@@ -22,7 +22,7 @@ import { fixBlessedWidths } from '../lib/tui.mjs';
  * @param {string} [options.notice=''] - 起動時に画面上部に表示するお知らせテキスト
  * @param {boolean} [options.sound=true] - 音声を鳴らすかどうか（スピーカー有効化）
  */
-export async function runLobby({ profile, notice = '', sound = true } = {}) {
+export async function runLobby({ profile, cardManager = null, notice = '', sound = true } = {}) {
   // ログで TUI が崩れないよう、標準出力を無効化（デバッグ用のファイル出力は役目を終えたため削除）
   process.on('uncaughtException', () => {});
   process.on('unhandledRejection', () => {});
@@ -122,7 +122,7 @@ export async function runLobby({ profile, notice = '', sound = true } = {}) {
     const r = shown[index];
     if (!r || current || !lobby) return;
     mainBox.hide();
-    current = showRoom(screen, { target: { roomId: r.id, name: r.rn }, profile, lobby, sound });
+    current = showRoom(screen, { target: { roomId: r.id, name: r.rn }, profile, cardManager, lobby, sound });
     note = (await current.done) || '';
     current = null;
     mainBox.show();

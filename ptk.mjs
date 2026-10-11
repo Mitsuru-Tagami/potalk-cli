@@ -32,6 +32,8 @@ const HELP = `
 
 【 通話中のチャットコマンド (部屋内で使用) 】
   /help         コマンド一覧とヘルプを表示する
+  /card         自分の名刺（ひとこと・SNS・お礼窓口）を対話形式で編集する
+  /card <番号>  /who の参加者番号を指定し、相手の署名済み名刺を要求する
   /tag <話題>   部屋の話題（タグ）を変更する（/notag で消去）
   /list         現在の部屋にいながら、他のアクティブな部屋一覧を見る
   /who          現在の参加者一覧を表示する（行表示モード時）
@@ -54,10 +56,13 @@ const opt = (name, def) => {
 // 名乗り。前回覚えたもの（~/.config/ptk/profile.json）に --name / --emoji を重ね、付いていれば覚え直す
 const profileFromOpts = async () => {
   const { resolveProfile, profilePath } = await import('./lib/profile.mjs');
+  const { loadCardManager } = await import('./lib/card.mjs');
   const r = resolveProfile({ name: opt('name', undefined), emoji: opt('emoji', undefined) });
-  const notice = r.saved ? `📝 名乗りを覚えました：${r.profile.emoji}${r.profile.name}（次からは --name なしでこの名前です）`
+  const cardManager = await loadCardManager();
+  let notice = r.saved ? `📝 名乗りを覚えました：${r.profile.emoji}${r.profile.name}（次からは --name なしでこの名前です）`
     : r.error ? `（名乗りを保存できませんでした：${profilePath()}：${r.error}）` : '';
-  return { profile: r.profile, notice };
+  if (cardManager.invalidCard) notice += `${notice ? '　' : ''}🛡 名刺JSONの署名が一致しないため、部屋では名刺を破棄します（/cardで設定し直せます）`;
+  return { profile: r.profile, notice, cardManager };
 };
 
 switch (cmd) {
@@ -83,11 +88,11 @@ switch (cmd) {
     const creating = cmd === 'create' || cmd === '部屋をつくる' || cmd === '作成';
     const FLAGS = ['--no-sound'];   // 値を取らないオプション
     const arg = rest.find((a, i) => !a.startsWith('--') && !(rest[i - 1]?.startsWith('--') && !FLAGS.includes(rest[i - 1])));
-    const { profile, notice } = await profileFromOpts();
+    const { profile, notice, cardManager } = await profileFromOpts();
     if (notice) console.error(notice);
     // 部屋名を付けずに作るときは「名前の部屋」（本家の defaultRoom と同じ）
     const create = creating ? (arg || `${profile.name}の部屋`) : null;
-    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create, profile, sound: !rest.includes('--no-sound') });
+    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create, profile, cardManager, sound: !rest.includes('--no-sound') });
     break;
   }
   default:
