@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { openRoom } from '../lib/room.mjs';
-import { handlePeerMuteCommand, handleSessionRoomEvent } from '../lib/session.mjs';
+import { enterRoom, handlePeerMuteCommand, handleSessionRoomEvent } from '../lib/session.mjs';
 
 function createFakeRoom() {
   const actions = new Map();
@@ -124,6 +124,42 @@ test('/hbk・/unhbk は参加者番号をpeerIdに対応させ、自分・不正
   handlePeerMuteCommand('/hbk', '', members, controls);
   assert.equal(operations.length, 2);
   assert.equal(messages.length, 6);
+});
+
+test('/hbk・/unhbk は /who と同じ番号で相手を操作する', async () => {
+  const operations = [];
+  const room = {
+    roomId: 'numbering-regression-room',
+    bcast: false,
+    canTalk: false,
+    micMuted: true,
+    talking: false,
+    meta: () => ({ name: '番号テスト部屋' }),
+    growthStage: () => '🌱',
+    members: () => [{ id: 'peer-id-one', label: '🦊相手', muted: false }],
+    mutePeer: id => { operations.push(['mute', id]); return true; },
+    unmutePeer: id => { operations.push(['unmute', id]); return true; },
+    async leave() {}
+  };
+  const messages = [];
+  const session = enterRoom({
+    target: { roomId: room.roomId, name: '番号テスト部屋' },
+    profile: { name: '自分', emoji: '👤' },
+    lobby: { announce() {} },
+    sound: false,
+    onText: text => messages.push(text),
+    openRoomImpl: () => room
+  });
+
+  try {
+    session.command('/who');
+    assert.match(messages.at(-1), /1\. 👤自分.*2\. 🦊相手/s);
+    session.command('/hbk 2');
+    session.command('/unhbk 2');
+    assert.deepEqual(operations, [['mute', 'peer-id-one'], ['unmute', 'peer-id-one']]);
+  } finally {
+    await session.leave();
+  }
 });
 
 test('ローカルミュートchatは画面・TTS・JSONL callbackへ流さず、入退室通知は残す', () => {
