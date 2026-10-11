@@ -93,7 +93,7 @@ export async function runLobby({ profile, notice = '', sound = true } = {}) {
     shown = lobby.rooms().filter(r => matchRoom(r, filter));
     const items = shown.map((r, i) => {
       const name = tuiText((r.bo ? '📡 ' : '') + (r.rn || '（名前のない部屋）'));
-      const people = tuiText(r.people.map(p => p.emoji).join(''));
+      const people = tuiText(r.people.map(p => p.emoji + (p.stage || '')).join(''));
       return `  ${String(i + 1).padEnd(4)} ${padWidth(name, 25)} ${padWidth(tuiText(r.tag ? `#${r.tag}` : ''), 16)} ${r.people.length}人 ${people}`;
     });
     roomList.setItems(items.length ? items : [filter ? tuiText(`  (「${filter}」に合う部屋はありません。Esc で解除)`) : '  (現在通話中の部屋はありません)']);

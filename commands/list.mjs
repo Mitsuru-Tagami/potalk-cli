@@ -16,7 +16,7 @@ export async function runList({ seconds = 15 } = {}) {
   } else {
     for (const r of rooms) {
       const tag = r.tag ? ` #${r.tag}` : '';
-      const who = r.people.map(p => `${p.emoji}${p.name || '名無し'}`).join(' ');
+      const who = r.people.map(p => `${p.emoji}${p.name || '名無し'}${p.stage ? ` ${p.stage}` : ''}`).join(' ');
       console.log(`${r.bo ? '📡 ' : ''}${r.rn || '（名前のない部屋）'}${tag}  ${r.people.length}人  ${who}`);
     }
   }
