@@ -53,7 +53,7 @@ async function pickFromLobby(lobby, rl, query = '', output = process.stdout) {
   return r ? { roomId: r.id, name: r.rn } : undefined;   // undefined＝番号が外れた（null＝見つからなかった）
 }
 
-export async function runJoin({ ref, create, profile, cardManager = null, sound = true, eventsJsonl = false }) {
+export async function runJoin({ ref, create, profile, cardManager = null, sound = true, eventsJsonl = false, tts = null }) {
   process.on('uncaughtException', e => { if (process.env.PTK_DEBUG) console.error('[error]', e?.message || e); });
   // trystero はリレーの不調（rate limit など）を console.warn に出す。よくあることなので普段は隠す
   const warn = console.warn;
@@ -71,7 +71,7 @@ export async function runJoin({ ref, create, profile, cardManager = null, sound 
   if (!target?.roomId) { if (target !== null) console.error('部屋が決まりませんでした。'); await lobby.leave(); process.exit(1); }
 
   const session = enterRoom({
-    target, profile, cardManager, lobby, sound,
+    target, profile, cardManager, lobby, sound, tts,
     onText: say,
     onReceivedChat: eventsJsonl ? event => process.stdout.write(`${serializeReceivedChat(event)}\n`) : undefined,
     onFull: () => quit(1),

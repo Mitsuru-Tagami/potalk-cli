@@ -38,7 +38,7 @@ const hhmm = () => new Date().toTimeString().slice(0, 5);
  *   done は退出（q・満員）時にresolveするPromise。
  *   close は外部（Ctrl-Cなど）から強制的に退出・画面破棄させる関数。
  */
-export function showRoom(screen, { target, profile, cardManager = null, lobby, sound }) {
+export function showRoom(screen, { target, profile, cardManager = null, lobby, sound, tts = null }) {
   let closeRoom;
   const done = new Promise(resolve => {
     const frame = blessed.box({
@@ -158,7 +158,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
     }
 
     session = enterRoom({
-      target, profile, cardManager, lobby, sound,
+      target, profile, cardManager, lobby, sound, tts,
       onText: say,
       onChange: draw,
       onFull: cap => close(`満員でした（最大 ${cap}人）`),
