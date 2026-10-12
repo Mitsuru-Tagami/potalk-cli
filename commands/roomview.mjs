@@ -60,7 +60,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
     const help = blessed.box({ parent: frame, bottom: 1, left: 1, width: '100%-4', height: 1, style: { fg: 'gray' } });
 
     const setHelp = typing => help.setContent(typing
-      ? '  Enter: 送る（60文字まで。Tab: コマンド補完。/hbk 番号・/unhbk 番号 ローカルミュート　/tag 話題　/list 部屋一覧　/cp URLコピー） | Esc: やめる'
+      ? '  Enter: 送る（60文字まで。Tab: コマンド補完。/hbk 番号・/unhbk 番号 ローカルミュート　/tag 話題　/list 部屋一覧　/dice [面数] ダイス　/cp URLコピー） | Esc: やめる'
       : '  t: マイク オン/オフ | i / Enter: ひとこと | m: 音を消す・戻す | j/k: 遡る | q: 退出してロビーへ');
     setHelp(false);
 
@@ -187,7 +187,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
       input.clearValue(); setHelp(false); log.focus();
       if (s === '/q' || s === '/quit') return close();
       if (s.startsWith('/') && session.command(s)) { screen.render(); return; }
-      if (s.startsWith('/')) say('（使えるのは /help /tag /notag /list /who /card /hbk /unhbk /mic /mute /cp /copy /q です）');
+      if (s.startsWith('/')) say('（使えるのは /help /dice /tag /notag /list /who /card /hbk /unhbk /mic /mute /cp /copy /q です）');
       else if (s) session.say(s);
       screen.render();
     });
