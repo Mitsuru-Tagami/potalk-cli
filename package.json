@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node ptk.mjs",
     "list": "node ptk.mjs list",
-    "test": "node --test"
+    "test": "node --test",
+    "test:tts-router": "python3 -m unittest discover -s test -p 'test_*.py'"
   },
   "keywords": [],
   "author": "",
