@@ -77,7 +77,7 @@ export async function runJoin({ ref, create, profile, cardManager = null, sound 
     onFull: () => quit(1),
     onCardEdit: editCard
   });
-  say('（文字を打って Enter でひとことを送る。Tab: コマンド補完　/mic マイク　/tag 話題　/list 部屋一覧　/who 参加者　/card 名刺　/hbk・/unhbk ローカルミュート　/mute 音　/cp URLコピー　/q 退出）');
+  say('（文字を打って Enter でひとことを送る。Tab: コマンド補完　/mic マイク　/tag 話題　/list 部屋一覧　/who 参加者　/card 名刺　/hbk・/unhbk ローカルミュート　/mute 音　/dice [面数] ダイス　/cp URLコピー　/q 退出）');
 
   let quitting = false;
   let cardEditing = false;
@@ -109,7 +109,7 @@ export async function runJoin({ ref, create, profile, cardManager = null, sound 
     const s = line.trim();
     if (s === '/q' || s === '/quit') return quit(0);
     if (s.startsWith('/') && session.command(s)) return;
-    if (s.startsWith('/')) { say('（使えるのは /help /tag /notag /list /who /card /hbk /unhbk /mic /mute /cp /copy /q です）'); return; }
+    if (s.startsWith('/')) { say('（使えるのは /help /dice /tag /notag /list /who /card /hbk /unhbk /mic /mute /cp /copy /q です）'); return; }
     if (s) session.say(s);
   });
 }
