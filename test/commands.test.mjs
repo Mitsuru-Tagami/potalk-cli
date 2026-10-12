@@ -3,11 +3,14 @@ import assert from 'node:assert/strict';
 import { completeRoomCommand, commonCommandPrefix, roomCommandMatches } from '../lib/commands.mjs';
 import { copyRoomUrl } from '../lib/clipboard.mjs';
 
-test('roomCommandMatches：スラッシュコマンドを接頭辞で補完し、/dice /card /cp /copyも含む', () => {
+test('roomCommandMatches：スラッシュコマンドを接頭辞で補完し、/dice /waka /haiku /card /cp /copyも含む', () => {
   assert.deepEqual(roomCommandMatches('/c'), ['/card', '/cp', '/copy']);
   assert.deepEqual(roomCommandMatches('/d'), ['/dice']);
+  assert.deepEqual(roomCommandMatches('/wa'), ['/waka']);
+  assert.deepEqual(roomCommandMatches('/hai'), ['/haiku']);
   assert.deepEqual(completeRoomCommand('/dice'), [['/dice'], '/dice']);
   assert.deepEqual(roomCommandMatches('/co'), ['/copy']);
+  assert.deepEqual(roomCommandMatches('/di'), ['/dice']);
   assert.deepEqual(roomCommandMatches('/hb'), ['/hbk']);
   assert.deepEqual(roomCommandMatches('/unh'), ['/unhbk']);
   assert.ok(roomCommandMatches('/').includes('/help'));
