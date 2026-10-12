@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "default_engine": "voicevox",
+  "default_speaker": "ずんだもん",
+  "engines": {
+    "voicevox": {
+      "command": ["python3", "/home/you/bin/ptk-voicevox-tts.py"],
+      "id_type": "integer",
+      "id_env": "VOICEVOX_SPEAKER",
+      "env": {
+        "VOICEVOX_URL": "http://127.0.0.1:50021"
+      }
+    },
+    "coeiroink": {
+      "command": ["python3", "/home/you/bin/ptk-coeiroink-tts.py"],
+      "id_type": "uuid",
+      "id_env": "COEIROINK_UUID",
+      "style_env": "COEIROINK_STYLE_ID",
+      "default_style_id": 0,
+      "env": {
+        "COEIROINK_API": "http://127.0.0.1:50032"
+      }
+    }
+  },
+  "speakers": {
+    "ずんだもん": {
+      "engine": "voicevox",
+      "id": 3,
+      "aliases": ["zundamon", "ずんだもん・ノーマル"]
+    },
+    "つくよみちゃん": {
+      "engine": "coeiroink",
+      "id": "3c37646f-3881-5374-2a83-149267990abc",
+      "style_id": 0,
+      "aliases": ["tsukuyomi", "つくよみ"]
+    }
+  }
+}
