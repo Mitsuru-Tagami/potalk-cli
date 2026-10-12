@@ -32,7 +32,7 @@ test('room action accepts production proof objects and keeps failed or absent ch
   process.env.XDG_CONFIG_HOME = configDir;
   const fake = createFakeRoom();
   const events = [];
-  let room;
+  let room, socialVerificationCalls = 0;
   try {
     const ownerCard = await loadCardManager();
     await ownerCard.update({ bio: '本番プロトコル', socials: { github: 'Mitsuru-Tagami' } });
@@ -41,6 +41,11 @@ test('room action accepts production proof objects and keeps failed or absent ch
       roomId: 'card-room-test', profile: { name: 'CLI', emoji: '💻' },
       cardManager: null, lobby: { announce() {} },
       joinRoomImpl: () => fake.room, outgoingStreamImpl: () => null,
+      verifyCardSocialProofsImpl: async (_card, options) => {
+        assert.equal(options.keyVerified, true);
+        socialVerificationCalls++;
+        return { github: { status: 'verified' } };
+      },
       onEvent: event => events.push(event)
     });
     fake.room.onPeerJoin(peerId);
@@ -57,8 +62,9 @@ test('room action accepts production proof objects and keeps failed or absent ch
     assert.equal(verifiedKeyEvent.keyVerified, true);
     assert.equal(verifiedKeyEvent.card.pr.github, 1);
     assert.equal(verifiedKeyEvent.card.bio, '本番プロトコル');
+    assert.equal(socialVerificationCalls, 0, 'ordinary card fetch does not verify SNS proofs');
 
-    assert.equal(room.requestCard(peerId), true);
+    assert.equal(room.requestCard(peerId, { verifySocials: true }), true);
     await fake.actions.get('card').onMessage(productionPayload, { peerId });
     const secondQuery = fake.sent.filter(item => item.name === 'card' && item.data?.k === 'q').at(-1).data;
     const wrongRoomAnswer = await ownerCard.answerChallenge('different-room', selfId, peerId, secondQuery.n);
@@ -67,6 +73,19 @@ test('room action accepts production proof objects and keeps failed or absent ch
     assert.equal(unverifiedEvent.keyVerified, false);
     assert.equal(unverifiedEvent.keyVerificationReason, 'failed');
     assert.equal(unverifiedEvent.card.bio, '本番プロトコル');
+    assert.equal(unverifiedEvent.socialVerificationRequested, true);
+    assert.equal(socialVerificationCalls, 0, 'SNS lookups are skipped when the key challenge fails');
+
+    assert.equal(room.requestCard(peerId, { verifySocials: true }), true);
+    await fake.actions.get('card').onMessage(productionPayload, { peerId });
+    const thirdQuery = fake.sent.filter(item => item.name === 'card' && item.data?.k === 'q').at(-1).data;
+    const thirdAnswer = await ownerCard.answerChallenge('card-room-test', selfId, peerId, thirdQuery.n);
+    await fake.actions.get('card').onMessage(thirdAnswer, { peerId });
+    const snsVerifiedEvent = events.filter(event => event.type === 'card').at(-1);
+    assert.equal(socialVerificationCalls, 1);
+    assert.equal(snsVerifiedEvent.keyVerified, true);
+    assert.equal(snsVerifiedEvent.socialVerificationRequested, true);
+    assert.deepEqual(snsVerifiedEvent.socialVerification.github, { status: 'verified' });
 
     assert.equal(room.requestCard(peerId), true);
     const beforeQ = fake.sent.filter(item => item.name === 'card' && item.data?.k === 'q').length;
