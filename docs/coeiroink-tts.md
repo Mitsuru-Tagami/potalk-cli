@@ -1,5 +1,7 @@
 # Linux Mint + XFCEでCOEIROINK v2を使う
 
+> まず手軽に読み上げを始めたい場合は、[VOICEVOX / COEIROINK v2 かんたんセットアップ](tts-quickstart.md)をご利用ください。エンジンと声を選ぶだけで設定でき、IDやJSONを手で編集する必要はありません。このページはエンジンの導入・APIの詳しい手動設定用です。
+
 `ptk` が受信したチャットコメントを、ローカルで動かす COEIROINK v2 に読み上げさせる手順です。Python製の読み上げラッパーもこのリポジトリに含めています。
 
 この手順は **BYOE（Bring Your Own Engine）** 方式です。COEIROINK本体や音声ライブラリは `potalk-cli` に含まれません。COEIROINKのダウンロード・インストール・起動は別途行ってください。`ptk` は受信コメント本文を外部コマンドの標準入力へ渡します。
