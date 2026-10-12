@@ -1,5 +1,7 @@
 # Linux Mint + XFCEでVOICEVOX Engineを使う
 
+> まず手軽に読み上げを始めたい場合は、[VOICEVOX / COEIROINK v2 かんたんセットアップ](tts-quickstart.md)をご利用ください。エンジンと声を選ぶだけで設定でき、IDやJSONを手で編集する必要はありません。このページはエンジンの導入・APIの詳しい手動設定用です。
+
 `ptk` が受信したチャットコメントを、ローカルで動かす VOICEVOX Engine に読み上げさせるための手順です。特に、`espeak-ng` では読みづらい漢字かな交じりの日本語コメントを読み上げたい場合に使えます。
 
 この手順は **BYOE（Bring Your Own Engine）** 方式です。VOICEVOX Engineや音声ライブラリは `potalk-cli` に含まれず、インストールや起動も別途必要です。`ptk` は受信コメント本文を外部コマンドの標準入力へ渡すだけです。
