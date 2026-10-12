@@ -16,6 +16,7 @@ GoやRustといった渋い言語も検討しましたが、動いている元�
 
 ### 2026-10-12
 - `/hbk <番号>`・`/unhbk <番号>` で相手をセッション限定のローカルミュートにできるようにしました（Issue #19）。相手への通知や通信遮断は行いません。
+- Windows・macOSを含むOS別の導入手順と、SoXの音声設定・トラブルシューティングを追加しました。
 
 ### 2026-10-11
 - 部屋内コマンドを Tab で補完できるようにし、`/cp`・`/copy` で部屋URLをクリップボードへコピーできるようにしました（Issue #22、#18）。
@@ -53,14 +54,27 @@ GoやRustといった渋い言語も検討しましたが、動いている元�
 - 初回プロトタイプ版 `potalk-cli` の実装
 - README の初期化（作者・ライセンス情報の記載）
 
-## 使い方
+## インストール
 
-Node.js 20.6 以上が必要です。声を聞く・話すには [sox](https://sourceforge.net/projects/sox/) も入れてください（`brew install sox` / `apt install sox`）。
+Node.js **20.6以上**が必要です。ネイティブWebRTC依存の対応範囲に合わせ、Node.js 22を推奨します。音声を聞く・話すには SoX の `play`・`rec` コマンドも必要です。
+
+Windows・macOS・Linuxの詳しい手順（Node.js、SoX、インストール、起動確認）は[OS別の導入ガイド](docs/install.md)を参照してください。
+
+リポジトリを取得して依存関係をインストールします。
 
 ```bash
-npm install
+git clone https://github.com/Mitsuru-Tagami/potalk-cli.git
+cd potalk-cli
+npm ci
 npm link          # ptk コマンドとして使えるようにする（任意）
+ptk help
+```
 
+`npm link` を使わない場合は、リポジトリ内で `node ptk.mjs help` のように実行できます。
+
+## 使い方
+
+```bash
 ptk               # ロビーを TUI で表示（j/k で移動、Enter で部屋に入る、/ で絞り込み、r で再読み込み、q で終了）
 ptk list          # 通話中の部屋を一覧で出力（--seconds N で待ち時間、既定 15 秒）
 ptk join          # ロビーから番号で選んで部屋に入る
