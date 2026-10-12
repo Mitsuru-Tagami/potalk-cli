@@ -1,12 +1,14 @@
-import { validateCardField } from '../lib/card.mjs';
+import { normalizeSocialId, normalizeTipId, validateCardField } from '../lib/card.mjs';
 
 const FIELDS = [
   ['bio', 'ひとこと（最大60文字）', card => card?.bio || ''],
-  ['x', 'X ID（@なし）', card => card?.socials?.x || ''],
-  ['github', 'GitHub ID', card => card?.socials?.github || ''],
-  ['note', 'note ID', card => card?.socials?.note || ''],
-  ['nostr', 'Nostr npub', card => card?.socials?.nostr || ''],
-  ['tip', 'お礼の窓口（provider:id、例 kofi:potalk）', card => card?.tip ? `${card.tip.p}:${card.tip.id}` : ''],
+  ['x', 'X IDまたはプロフィールURL', card => card?.socials?.x || ''],
+  ['github', 'GitHub IDまたはプロフィールURL', card => card?.socials?.github || ''],
+  ['note', 'note IDまたはプロフィールURL', card => card?.socials?.note || ''],
+  ['instagram', 'Instagram IDまたはプロフィールURL', card => card?.socials?.instagram || ''],
+  ['youtube', 'YouTube @ハンドルまたはチャンネルURL', card => card?.socials?.youtube || ''],
+  ['nostr', 'Nostr npubまたはプロフィールURL', card => card?.socials?.nostr || ''],
+  ['tip', 'お礼の窓口（ofuse/amazon/zap/kofi/bmac:id）', card => card?.tip ? `${card.tip.p}:${card.tip.id}` : ''],
   ['avatar', 'アイコンdata URL（WebP/JPEG/PNG、最大40,000文字）', card => card?.avatar ? '（設定済み。Enterで保持）' : '']
 ];
 
@@ -14,19 +16,24 @@ function parseField(key, value) {
   if (key === 'tip') {
     const split = value.indexOf(':');
     if (split <= 0) return null;
-    return { tip: { p: value.slice(0, split), id: value.slice(split + 1) } };
+    const p = value.slice(0, split);
+    const id = normalizeTipId(p, value.slice(split + 1));
+    return id ? { tip: { p, id } } : null;
   }
-  if (['x', 'github', 'note', 'nostr'].includes(key)) return { socials: { [key]: value } };
+  if (['x', 'github', 'note', 'instagram', 'youtube', 'nostr'].includes(key)) {
+    const id = normalizeSocialId(key, value);
+    return id ? { socials: { [key]: id } } : null;
+  }
   return { [key]: value };
 }
 
-/** Ask for card fields, validate each before saving, then sign and persist once. */
+/** Ask for card fields, validate each before saving, then persist the un-signed card body. */
 export async function editCardInteractive(cardManager, ask, onText = () => {}) {
   if (!cardManager || typeof cardManager.update !== 'function') {
     onText('名刺の保存機能を利用できません。');
     return false;
   }
-  if (cardManager.invalidCard) onText('保存済み名刺の署名が一致しないため破棄しました。空の状態から再設定してください。');
+  if (cardManager.invalidCard) onText('保存済み名刺の形式または鍵が一致しないため無効化しました。空の状態から再設定してください。');
   const current = cardManager.card;
   const changes = {};
   let changed = false;
@@ -50,7 +57,7 @@ export async function editCardInteractive(cardManager, ask, onText = () => {}) {
       const parsed = parseField(key, text);
       const field = key === 'tip' ? 'tip' : key === 'avatar' ? 'avatar' : key === 'bio' ? 'bio' : 'socials';
       if (!parsed || !validateCardField(field, field === 'socials' ? parsed.socials : parsed[field])) {
-        onText(`入力形式が正しくありません。${key === 'bio' ? '60文字以内で入力してください。' : '仕様に合うIDまたは値を入力してください。'}`);
+        onText(`入力形式が正しくありません。${key === 'bio' ? '60文字以内で入力してください。' : '本番仕様に合うIDまたは値を入力してください。'}`);
         continue;
       }
       if (key === 'tip' || key === 'avatar' || key === 'bio') changes[key] = parsed[key];
@@ -66,7 +73,7 @@ export async function editCardInteractive(cardManager, ask, onText = () => {}) {
   }
   try {
     await cardManager.update(changes);
-    onText('名刺を署名して保存しました。/card <番号> で参加者の名刺を要求できます。');
+    onText('名刺を保存しました（本文への署名やSNS本人確認は行わず、カード鍵は所持応答に使います）。');
     return true;
   } catch (error) {
     onText(`名刺を保存できませんでした: ${error?.message || error}`);

@@ -36,7 +36,7 @@ const HELP = `
 【 通話中のチャットコマンド (部屋内で使用) 】
   /help         コマンド一覧とヘルプを表示する
   /card         自分の名刺（ひとこと・SNS・お礼窓口）を対話形式で編集する
-  /card <番号>  /who の参加者番号を指定し、相手の署名済み名刺を要求する
+  /card <番号>  /who の参加者番号を指定し、相手の名刺を要求する（SNS本人性は未検証）
   /tag <話題>   部屋の話題（タグ）を変更する（/notag で消去）
   /list         現在の部屋にいながら、他のアクティブな部屋一覧を見る
   /who          現在の参加者一覧を表示する（行表示モード時）
@@ -67,7 +67,7 @@ const profileFromOpts = async () => {
   const cardManager = await loadCardManager();
   let notice = r.saved ? `📝 名乗りを覚えました：${r.profile.emoji}${r.profile.name}（次からは --name なしでこの名前です）`
     : r.error ? `（名乗りを保存できませんでした：${profilePath()}：${r.error}）` : '';
-  if (cardManager.invalidCard) notice += `${notice ? '　' : ''}🛡 名刺JSONの署名が一致しないため、部屋では名刺を破棄します（/cardで設定し直せます）`;
+  if (cardManager.invalidCard) notice += `${notice ? '　' : ''}🛡 保存済み名刺の形式または鍵が一致しないため無効化しました（/cardで設定し直せます）`;
   return { profile: r.profile, notice, cardManager };
 };
 
