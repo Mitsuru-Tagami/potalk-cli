@@ -23,6 +23,7 @@ import { padWidth, tuiText } from '../lib/text.mjs';
 import { roomCommandMatches, commonCommandPrefix } from '../lib/commands.mjs';
 import { editCardInteractive } from './card-edit.mjs';
 import { BOSS_SCREEN_VARIANTS, bindBossScreenShortcut, startBossScreen } from './boss-screen.mjs';
+import { formatMicMeter } from '../lib/mic-level.mjs';
 
 const MEMBERS_H = 10;   // 参加者の段の高さ（定員 8 人＋見出し＋余白）
 const BOSS_ESCAPE_WINDOW_MS = 350;
@@ -155,6 +156,11 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
       const micState = !session.room.canTalk ? '' : session.micOn ? ' ─── 🎙 マイク オン' : ' ─── 🔇 マイク オフ（t で話す）';
       frame.setLabel(tuiText(` ${session.label()} ─── ${sound}${micState} `));
       const lines = [` 参加者（${ms.length}人）`];
+      if (session.room.canTalk) {
+        lines.push(session.micOn
+          ? ` 🎙 マイク入力 ${formatMicMeter(session.micMeter?.() || {})}`
+          : ' 🎙 マイク入力 OFF（t でオン）');
+      }
       for (const m of ms) {
         const mark = m.muted ? '🔇' : m.talking ? '🔊' : '';
         const role = m.owner ? '📣' : m.speaker ? '🎙' : '';   // 配信部屋：配信者・話してよい人

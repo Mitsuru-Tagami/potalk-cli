@@ -41,3 +41,14 @@ test('--konami を指定しても help は従来どおりヘルプを表示す�
   assert.doesNotMatch(result.stdout, /--konami/u);
   assert.doesNotMatch(result.stdout, /--boss/u);
 });
+
+test('ptk --mic-test はSoX不在を案内して失敗終了する', () => {
+  const script = new URL('../ptk.mjs', import.meta.url).pathname;
+  const result = spawnSync(process.execPath, [script, '--mic-test'], {
+    encoding: 'utf8',
+    env: { ...process.env, PATH: '' }
+  });
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stderr, /既定のマイク入力/u);
+  assert.match(result.stderr, /SoXの rec コマンドが見つかりません/u);
+});
