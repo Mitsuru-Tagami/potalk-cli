@@ -5,7 +5,7 @@ import { enterRoom } from '../lib/session.mjs';
 import { completeRoomCommand, roomCommandMatches } from '../lib/commands.mjs';
 import { KONAMI_KEY_SEQUENCE_LABEL } from '../lib/easter-egg.mjs';
 
-function makeSession({ onBoss = null } = {}) {
+function makeSession() {
   const messages = [];
   const sent = [];
   const room = {
@@ -19,48 +19,37 @@ function makeSession({ onBoss = null } = {}) {
     target: { roomId: room.roomId, name: 'test room' },
     profile: { name: 'CLI', emoji: '💻' },
     lobby: { announce() {}, rooms: () => [] }, sound: false,
-    onText: message => messages.push(message), onBoss,
+    onText: message => messages.push(message),
     openRoomImpl: () => room,
     createTtsImpl: () => ({ speak() {}, close() {} })
   });
   return { session, messages, sent };
 }
 
-test('/bossはTab補完される', () => {
-  assert.deepEqual(roomCommandMatches('/bo'), ['/boss']);
-  assert.deepEqual(completeRoomCommand('/boss'), [['/boss'], '/boss']);
-});
-
-test('/bossはTUIコールバックだけを呼び、通話チャットは送信しない', async () => {
-  let entries = 0;
-  const state = makeSession({ onBoss: () => { entries++; } });
+test('/bossはコマンドとして処理・補完されない', async () => {
+  const state = makeSession();
   try {
-    assert.equal(state.session.command('/boss'), true);
-    assert.equal(entries, 1);
-    assert.deepEqual(state.sent, []);
+    assert.deepEqual(roomCommandMatches('/bo'), []);
+    assert.deepEqual(completeRoomCommand('/boss'), [[], '/boss']);
+    assert.equal(state.session.command('/boss'), false);
+    assert.deepEqual(state.sent, [], '/boss must not be sent as a chat command');
   } finally {
     await state.session.leave();
   }
 });
 
-test('/bossは行表示ではTUI専用と案内し、引数付きなら画面を開かない', async () => {
-  let entries = 0;
-  const state = makeSession({ onBoss: () => { entries++; } });
+test('/helpとptk helpに/bossの説明がない', async () => {
+  const state = makeSession();
   try {
-    assert.equal(state.session.command('/boss extra'), true);
-    assert.equal(entries, 0);
-    assert.match(state.messages.at(-1), /使用方法：\/boss/u);
-
-    const lineMode = makeSession();
-    try {
-      assert.equal(lineMode.session.command('/boss'), true);
-      assert.match(lineMode.messages.at(-1), /TUI.*のみ/u);
-    } finally {
-      await lineMode.session.leave();
-    }
+    state.session.command('/help');
+    assert.equal(state.messages.some(message => message.includes('/boss')), false);
   } finally {
     await state.session.leave();
   }
+
+  const result = spawnSync(process.execPath, [new URL('../ptk.mjs', import.meta.url).pathname, 'help'], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.doesNotMatch(result.stdout, /\/boss/u);
 });
 
 test('部屋では秘密配列は普通のチャットで、/konamiも起動コマンドではない', async () => {
@@ -78,18 +67,4 @@ test('部屋では秘密配列は普通のチャットで、/konamiも起動コ�
   } finally {
     await state.session.leave();
   }
-});
-
-test('/helpとptk helpに/bossの説明がある', async () => {
-  const state = makeSession();
-  try {
-    state.session.command('/help');
-    assert.ok(state.messages.some(message => /\/boss.*TUIのみ.*F12/u.test(message)));
-  } finally {
-    await state.session.leave();
-  }
-
-  const result = spawnSync(process.execPath, [new URL('../ptk.mjs', import.meta.url).pathname, 'help'], { encoding: 'utf8' });
-  assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /\/boss.*F12.*任意のキーで戻る/u);
 });

@@ -189,8 +189,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
       onText: say,
       onChange: draw,
       onFull: cap => close(`満員でした（最大 ${cap}人）`),
-      onCardEdit: editCard,
-      onBoss: enterBossMode
+      onCardEdit: editCard
     });
     // 話している印（🔊）は声の大きさで変わるので、出来事を待たずに描き直す
     const ticker = setInterval(draw, 400);

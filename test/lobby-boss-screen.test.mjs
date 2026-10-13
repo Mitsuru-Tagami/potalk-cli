@@ -77,3 +77,29 @@ test('ロビーではF12で一時画面を開閉でき、検索中・入室中�
     screen.destroy();
   }
 });
+
+test('--bossの起動時表示は一度だけ画面を開き、任意のキーでロビーへ戻る', () => {
+  const screen = makeScreen();
+  let openings = 0;
+  let bossScreen = null;
+  const unbind = bindLobbyBossScreenShortcut(screen, {
+    launchOnStart: true,
+    isBossScreenActive: () => !!bossScreen?.active,
+    onOpen: () => {
+      openings++;
+      bossScreen = startBossScreen(screen, { onClose: () => { bossScreen = null; } });
+    }
+  });
+
+  try {
+    assert.equal(openings, 1);
+    assert.equal(bossScreen.active, true);
+    pressKey(screen, 'x');
+    assert.equal(bossScreen, null);
+    assert.equal(openings, 1, 'the dismissing key must not also reopen the screen');
+  } finally {
+    unbind();
+    bossScreen?.close({ render: false });
+    screen.destroy();
+  }
+});
