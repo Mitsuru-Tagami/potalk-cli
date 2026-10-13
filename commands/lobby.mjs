@@ -14,7 +14,7 @@ import { openLobby, matchRoom } from '../lib/lobby.mjs';
 import { padWidth, tuiText } from '../lib/text.mjs';
 import { showRoom } from './roomview.mjs';
 import { fixBlessedWidths } from '../lib/tui.mjs';
-import { bindBossScreenShortcut, startBossScreen } from './boss-screen.mjs';
+import { bindBossScreenShortcut, selectBossScreenVariant, startBossScreen } from './boss-screen.mjs';
 import { bindKonamiKeySequence } from '../lib/easter-egg.mjs';
 import { startEasterEggScreen } from './easter-egg-screen.mjs';
 
@@ -51,9 +51,10 @@ export function bindLobbyKonamiSequence(screen, {
  * @param {boolean} [options.sound=true] - 音声を鳴らすかどうか（スピーカー有効化）
  * @param {string|null} [options.tts] - 受信チャット本文を渡す外部TTSコマンド
  * @param {boolean} [options.konami=false] - 一時テスト用。起動直後に隠し演出を表示
- * @param {boolean} [options.boss=false] - 一時テスト用。起動直後に週次メモ画面を表示
+ * @param {boolean} [options.boss=false] - 一時テスト用。起動直後にボス画面を表示
+ * @param {string} [options.bossScreenVariant] - ボス画面の種類（起動時に一度だけ抽選）
  */
-export async function runLobby({ profile, cardManager = null, notice = '', sound = true, tts = null, konami = false, boss = false } = {}) {
+export async function runLobby({ profile, cardManager = null, notice = '', sound = true, tts = null, konami = false, boss = false, bossScreenVariant = selectBossScreenVariant() } = {}) {
   // ログで TUI が崩れないよう、標準出力を無効化（デバッグ用のファイル出力は役目を終えたため削除）
   process.on('uncaughtException', () => {});
   process.on('unhandledRejection', () => {});
@@ -101,7 +102,7 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
   });
   const helpLine = blessed.box({
     parent: mainBox, bottom: 1, left: 0, width: '100%-2', height: 1,
-    content: '  j/k: Move | Enter: 入る | /: 絞り込み | F12: 週次メモ | r: Refresh | q: Quit', style: { fg: 'gray' }
+    content: '  j/k: Move | Enter: 入る | /: 絞り込み | F12: ボス画面 | r: Refresh | q: Quit', style: { fg: 'gray' }
   });
   // 絞り込みの入力欄（/ で開く。Vim の検索と同じ感覚）。キーの説明の行に重ねて出す
   const searchBox = blessed.textbox({
@@ -153,7 +154,7 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
     const r = shown[index];
     if (!r || current || !lobby) return;
     mainBox.hide();
-    current = showRoom(screen, { target: { roomId: r.id, name: r.rn }, profile, cardManager, lobby, sound, tts });
+    current = showRoom(screen, { target: { roomId: r.id, name: r.rn }, profile, cardManager, lobby, sound, tts, bossScreenVariant });
     note = (await current.done) || '';
     current = null;
     mainBox.show();
@@ -168,7 +169,7 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
   let easterEggMode = null;
   const openBossScreen = () => {
     if (bossScreen?.active) return;
-    bossScreen = startBossScreen(screen, { onClose: () => { bossScreen = null; } });
+    bossScreen = startBossScreen(screen, { variant: bossScreenVariant, onClose: () => { bossScreen = null; } });
   };
   const unbindBossShortcut = bindLobbyBossScreenShortcut(screen, {
     onOpen: openBossScreen,

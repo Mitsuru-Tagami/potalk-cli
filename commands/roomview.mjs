@@ -22,7 +22,7 @@ import { enterRoom } from '../lib/session.mjs';
 import { padWidth, tuiText } from '../lib/text.mjs';
 import { roomCommandMatches, commonCommandPrefix } from '../lib/commands.mjs';
 import { editCardInteractive } from './card-edit.mjs';
-import { bindBossScreenShortcut, startBossScreen } from './boss-screen.mjs';
+import { BOSS_SCREEN_VARIANTS, bindBossScreenShortcut, startBossScreen } from './boss-screen.mjs';
 
 const MEMBERS_H = 10;   // 参加者の段の高さ（定員 8 人＋見出し＋余白）
 const BOSS_ESCAPE_WINDOW_MS = 350;
@@ -41,7 +41,7 @@ const hhmm = () => new Date().toTimeString().slice(0, 5);
  *   done は退出（q・満員）時にresolveするPromise。
  *   close は外部（Ctrl-Cなど）から強制的に退出・画面破棄させる関数。
  */
-export function showRoom(screen, { target, profile, cardManager = null, lobby, sound, tts = null, enterRoomImpl = enterRoom }) {
+export function showRoom(screen, { target, profile, cardManager = null, lobby, sound, tts = null, bossScreenVariant = BOSS_SCREEN_VARIANTS.WEEKLY_MEMO, enterRoomImpl = enterRoom }) {
   let closeRoom;
   const done = new Promise(resolve => {
     const frame = blessed.box({
@@ -64,7 +64,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
 
     const setHelp = typing => help.setContent(typing
       ? '  Enter: 送る（60文字まで。Tab: コマンド補完。/hbk 番号・/unhbk 番号 ローカルミュート　/tag 話題　/list 部屋一覧　/dice [面数] ダイス　/cp URLコピー） | Esc: やめる'
-      : '  F12: 週次メモ | Esc×2: 週次メモ | t: マイク | m: 音 | i: 入力 | q: 退出');
+      : '  F12: ボス画面 | Esc×2: ボス画面 | t: マイク | m: 音 | i: 入力 | q: 退出');
     setHelp(false);
 
     let session = null, closing = false, cardEditing = false, cardModal = null, cancelCardPrompt = null;
@@ -139,6 +139,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
       if (bossScreen?.active || closing) return;
       lastBossEscapeAt = 0;
       bossScreen = startBossScreen(screen, {
+        variant: bossScreenVariant,
         onClose: () => { bossScreen = null; }
       });
     }
