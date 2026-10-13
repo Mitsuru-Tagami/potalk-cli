@@ -66,12 +66,12 @@ test('/helpとptk helpに/bossの説明がある', async () => {
   const state = makeSession();
   try {
     state.session.command('/help');
-    assert.ok(state.messages.some(message => /\/boss.*TUIのみ/u.test(message)));
+    assert.ok(state.messages.some(message => /\/boss.*TUIのみ.*b.*Esc/u.test(message)));
   } finally {
     await state.session.leave();
   }
 
   const result = spawnSync(process.execPath, [new URL('../ptk.mjs', import.meta.url).pathname, 'help'], { encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /\/boss.*任意のキーで戻る/u);
+  assert.match(result.stdout, /\/boss.*b.*Esc/u);
 });

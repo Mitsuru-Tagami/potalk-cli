@@ -24,6 +24,7 @@ import { roomCommandMatches, commonCommandPrefix } from '../lib/commands.mjs';
 import { editCardInteractive } from './card-edit.mjs';
 
 const MEMBERS_H = 10;   // 参加者の段の高さ（定員 8 人＋見出し＋余白）
+const BOSS_ESCAPE_WINDOW_MS = 350;
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 
 /**
@@ -62,11 +63,13 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
 
     const setHelp = typing => help.setContent(typing
       ? '  Enter: 送る（60文字まで。Tab: コマンド補完。/hbk 番号・/unhbk 番号 ローカルミュート　/tag 話題　/list 部屋一覧　/dice [面数] ダイス　/cp URLコピー） | Esc: やめる'
-      : '  t: マイク オン/オフ | i / Enter: ひとこと | m: 音を消す・戻す | j/k: 遡る | q: 退出してロビーへ');
+      : '  b: 週次メモ | Esc×2: 週次メモ | t: マイク | m: 音 | i: 入力 | q: 退出');
     setHelp(false);
 
     let session = null, closing = false, cardEditing = false, cardModal = null, cancelCardPrompt = null;
-    let bossMode = false, bossOverlay = null, bossKeyListener = null, previousGrabKeys = false, previousClickables = null;
+    let bossMode = false, bossOverlay = null, bossKeyListener = null, previousGrabKeys = false, previousClickables = null, lastBossEscapeAt = 0;
+    const resetBossEscapeSequence = (_ch, key) => { if (key?.name !== 'escape') lastBossEscapeAt = 0; };
+    screen.on('keypress', resetBossEscapeSequence);
     const say = text => { log.log(tuiText(`${hhmm()}  ${text}`)); screen.render(); };
 
     // Blessed の Textbox は Tab を文字として挿入するため、入力処理の前に補完へ回す。
@@ -89,6 +92,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
     }
 
     function askCardPrompt(question) {
+      lastBossEscapeAt = 0;
       return new Promise(resolve => {
         const modal = blessed.box({
           parent: screen, top: 'center', left: 'center', width: '80%', height: 7,
@@ -117,6 +121,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
 
     async function editCard() {
       if (cardEditing) return;
+      lastBossEscapeAt = 0;
       cardEditing = true;
       try { await editCardInteractive(cardManager, askCardPrompt, say); }
       finally { cardEditing = false; if (!closing) { log.focus(); screen.render(); } }
@@ -140,6 +145,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
     function enterBossMode() {
       if (bossMode || closing) return;
       bossMode = true;
+      lastBossEscapeAt = 0;
       previousGrabKeys = screen.grabKeys;
       previousClickables = screen.clickable.slice();
       screen.grabKeys = true; // Blessed の画面キー処理を止め、終了用のキーだけを受け取る
@@ -207,10 +213,12 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
      */
     async function close(note) {
       if (closing) return; closing = true;
+      lastBossEscapeAt = 0;
       leaveBossMode();
       cancelCardPrompt?.();
       clearInterval(ticker);
       keys.forEach(([k, fn]) => screen.unkey(k, fn));
+      screen.removeListener('keypress', resetBossEscapeSequence);
       say('退出します…');
       await session?.leave();
       frame.destroy();
@@ -231,11 +239,23 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
     const ticker = setInterval(draw, 400);
 
     // ── キー操作 ── 画面全体に付けて、退出時に外す（要素に付けると子にフォーカスがあるとき届かない）。
-    // 入力欄にいる間は、1文字キー（m, q）を拾わない
+    // 入力欄や名刺編集の間は、1文字ショートカットを拾わない
     const typing = () => bossMode || cardEditing || screen.focused === input;
     let submittedAt = 0;   // 決定の Enter が、そのまま「入力欄を開く」にも届いてしまわないように
-    const openInput = () => { if (typing() || Date.now() - submittedAt < 150) return; setHelp(true); input.focus(); screen.render(); };
+    const openInput = () => { if (typing() || Date.now() - submittedAt < 150) return; lastBossEscapeAt = 0; setHelp(true); input.focus(); screen.render(); };
+    const bossOnDoubleEscape = () => {
+      if (typing() || closing) { lastBossEscapeAt = 0; return; }
+      const now = Date.now();
+      if (lastBossEscapeAt && now - lastBossEscapeAt <= BOSS_ESCAPE_WINDOW_MS) {
+        lastBossEscapeAt = 0;
+        enterBossMode();
+      } else {
+        lastBossEscapeAt = now;
+      }
+    };
     const keys = [
+      ['b', () => { if (!typing()) enterBossMode(); }],
+      ['escape', bossOnDoubleEscape],
       ['m', () => { if (!typing()) session.toggleMute(); }],
       ['t', () => { if (!typing()) session.toggleTalk(); }],
       ['q', () => { if (!typing()) close(); }],
@@ -246,6 +266,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
     closeRoom = () => close();
     input.on('submit', value => {
       const s = String(value || '').trim();
+      lastBossEscapeAt = 0;
       submittedAt = Date.now();
       input.clearValue(); setHelp(false); log.focus();
       if (s === '/q' || s === '/quit') return close();
@@ -254,7 +275,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
       else if (s) session.say(s);
       screen.render();
     });
-    input.on('cancel', () => { submittedAt = Date.now(); input.clearValue(); setHelp(false); log.focus(); screen.render(); });
+    input.on('cancel', () => { lastBossEscapeAt = 0; submittedAt = Date.now(); input.clearValue(); setHelp(false); log.focus(); screen.render(); });
     // 部屋の画面にいる間はキーがここに届くよう、log（frame の子）にフォーカスを置く
     log.focus();
     screen.realloc();
