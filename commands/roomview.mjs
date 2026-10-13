@@ -23,6 +23,7 @@ import { padWidth, tuiText } from '../lib/text.mjs';
 import { roomCommandMatches, commonCommandPrefix } from '../lib/commands.mjs';
 import { editCardInteractive } from './card-edit.mjs';
 import { startEasterEggScreen } from './easter-egg-screen.mjs';
+import { bindBossScreenShortcut, startBossScreen } from './boss-screen.mjs';
 
 const MEMBERS_H = 10;   // 参加者の段の高さ（定員 8 人＋見出し＋余白）
 const BOSS_ESCAPE_WINDOW_MS = 350;
@@ -65,11 +66,11 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
 
     const setHelp = typing => help.setContent(typing
       ? '  Enter: 送る（60文字まで。Tab: コマンド補完。/hbk 番号・/unhbk 番号 ローカルミュート　/tag 話題　/list 部屋一覧　/dice [面数] ダイス　/cp URLコピー） | Esc: やめる'
-      : '  b: 週次メモ | Esc×2: 週次メモ | t: マイク | m: 音 | i: 入力 | q: 退出');
+      : '  F12: 週次メモ | Esc×2: 週次メモ | t: マイク | m: 音 | i: 入力 | q: 退出');
     setHelp(false);
 
     let session = null, closing = false, cardEditing = false, cardModal = null, cancelCardPrompt = null;
-    let bossMode = false, bossOverlay = null, bossKeyListener = null, previousGrabKeys = false, previousClickables = null, lastBossEscapeAt = 0;
+    let bossScreen = null, lastBossEscapeAt = 0;
     let easterEggMode = null;
     const resetBossEscapeSequence = (_ch, key) => { if (key?.name !== 'escape') lastBossEscapeAt = 0; };
     screen.on('keypress', resetBossEscapeSequence);
@@ -131,67 +132,22 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
     }
 
     function leaveBossMode() {
-      if (!bossMode) return;
-      bossMode = false;
-      if (bossKeyListener) screen.program.removeListener('keypress', bossKeyListener);
-      bossKeyListener = null;
-      screen.grabKeys = previousGrabKeys;
-      bossOverlay?.hide();
-      bossOverlay?.destroy();
-      bossOverlay = null;
-      if (previousClickables) screen.clickable = previousClickables;
-      previousClickables = null;
-      if (screen.focused !== log) log.focus();
-      if (!closing) screen.render();
+      if (!bossScreen) return;
+      const activeScreen = bossScreen;
+      bossScreen = null;
+      activeScreen.close({ render: !closing });
     }
 
     function enterBossMode() {
-      if (bossMode || closing) return;
-      bossMode = true;
+      if (bossScreen?.active || closing) return;
       lastBossEscapeAt = 0;
-      previousGrabKeys = screen.grabKeys;
-      previousClickables = screen.clickable.slice();
-      screen.grabKeys = true; // Blessed の画面キー処理を止め、終了用のキーだけを受け取る
-      bossOverlay = blessed.box({
-        parent: screen, top: 0, left: 0, width: '100%', height: '100%',
-        style: { fg: 'white', bg: 'black' }, tags: false,
-        clickable: true, keyable: true, autoFocus: false
+      bossScreen = startBossScreen(screen, {
+        onClose: () => { bossScreen = null; }
       });
-      // 全面レイヤーだけを配送先にして、背後のログや入力欄へマウスを通さない。
-      bossOverlay.on('mouse', () => {});
-      bossOverlay.on('click', () => {});
-      screen.clickable = [bossOverlay];
-      const updatedAt = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'short', timeStyle: 'short' }).format(new Date());
-      blessed.box({
-        parent: bossOverlay, top: 'center', left: 'center', width: '88%', height: 17,
-        border: { type: 'line' }, label: ' 週次共有メモ ',
-        content: [
-          `更新 ${updatedAt}     チーム共有`,
-          '',
-          '今週の確認事項',
-          '  [済] 定例向けの進捗を整理',
-          '  [中] リリースチェック項目を確認',
-          '  [予] 次回レビューの議題をまとめる',
-          '',
-          '項目             状況       メモ',
-          'UI改善           進行中     表示を確認',
-          '運用メモ         確認中     手順書を更新',
-          '定例準備         完了       アジェンダを共有',
-          '',
-          '次回の予定: チーム定例（木曜 14:00）',
-          '',
-          '共有メモを表示中'
-        ].join('\n'),
-        style: { fg: 'white', bg: 'black', border: { fg: 'cyan' } }, tags: false
-      });
-      bossKeyListener = () => leaveBossMode();
-      screen.program.on('keypress', bossKeyListener);
-      bossOverlay.focus();
-      screen.render();
     }
 
     function enterEasterEggMode() {
-      if (easterEggMode || bossMode || closing) return;
+      if (easterEggMode || bossScreen?.active || closing) return;
       lastBossEscapeAt = 0;
       let mode;
       mode = startEasterEggImpl(screen, {
@@ -232,6 +188,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
       easterEggMode?.close({ render: false });
       easterEggMode = null;
       leaveBossMode();
+      unbindBossShortcut();
       cancelCardPrompt?.();
       clearInterval(ticker);
       keys.forEach(([k, fn]) => screen.unkey(k, fn));
@@ -258,7 +215,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
 
     // ── キー操作 ── 画面全体に付けて、退出時に外す（要素に付けると子にフォーカスがあるとき届かない）。
     // 入力欄や名刺編集の間は、1文字ショートカットを拾わない
-    const typing = () => bossMode || !!easterEggMode?.active || cardEditing || screen.focused === input;
+    const typing = () => !!bossScreen?.active || !!easterEggMode?.active || cardEditing || screen.focused === input;
     let submittedAt = 0;   // 決定の Enter が、そのまま「入力欄を開く」にも届いてしまわないように
     const openInput = () => { if (typing() || Date.now() - submittedAt < 150) return; lastBossEscapeAt = 0; setHelp(true); input.focus(); screen.render(); };
     const bossOnDoubleEscape = () => {
@@ -271,8 +228,12 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
         lastBossEscapeAt = now;
       }
     };
+    const unbindBossShortcut = bindBossScreenShortcut(screen, {
+      onOpen: enterBossMode,
+      isEnabled: () => !typing() && !closing,
+      isActive: () => !!bossScreen?.active
+    });
     const keys = [
-      ['b', () => { if (!typing()) enterBossMode(); }],
       ['escape', bossOnDoubleEscape],
       ['m', () => { if (!typing()) session.toggleMute(); }],
       ['t', () => { if (!typing()) session.toggleTalk(); }],

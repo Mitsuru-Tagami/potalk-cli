@@ -14,6 +14,7 @@ function makeRoomView({ startEasterEggImpl, onInterrupt } = {}) {
   let callbacks;
   let muteToggles = 0;
   let leaves = 0;
+  const sent = [];
   const session = {
     room: { bcast: false, canTalk: false },
     speaker: null,
@@ -22,6 +23,12 @@ function makeRoomView({ startEasterEggImpl, onInterrupt } = {}) {
     micOn: false,
     toggleMute() { muteToggles++; },
     toggleTalk() {},
+    command(line) {
+      if (line.trim() !== '/boss') return false;
+      callbacks.onBoss();
+      return true;
+    },
+    say(text) { sent.push(text); },
     async leave() { leaves++; }
   };
   const view = showRoom(screen, {
@@ -36,11 +43,12 @@ function makeRoomView({ startEasterEggImpl, onInterrupt } = {}) {
     input: frame.children.find(element => element.type === 'textbox'),
     log: frame.children.find(element => element.type === 'log'),
     get muteToggles() { return muteToggles; },
-    get leaves() { return leaves; }
+    get leaves() { return leaves; },
+    sent
   };
 }
 
-function pressKey(screen, name, ch = name === 'escape' ? '' : name) {
+function pressKey(screen, name, ch = ['escape', 'f12', 'enter'].includes(name) ? '' : name) {
   screen.program.emit('keypress', ch, { name, full: name });
 }
 
@@ -77,14 +85,20 @@ test('/boss画面はマウスでは閉じず、任意のキーで戻り、通話
   }
 });
 
-test('bは通話画面で起動し、入力欄では入力文字になる', async () => {
+test('F12は通話画面で起動し、入力中は安全で、bは通常入力のまま', async () => {
   const state = makeRoomView();
   try {
     const initialChildren = state.screen.children.length;
+    pressKey(state.screen, 'b');
+    assert.equal(state.screen.children.length, initialChildren, 'b must not open the boss screen');
+
     pressKey(state.screen, 'i');
     await new Promise(resolve => setImmediate(resolve));
     pressKey(state.screen, 'b');
     assert.equal(state.screen.children.length, initialChildren);
+    assert.equal(state.input.getValue(), 'b');
+    pressKey(state.screen, 'f12');
+    assert.equal(state.screen.children.length, initialChildren, 'F12 must not steal an input field');
     assert.equal(state.input.getValue(), 'b');
 
     pressKey(state.screen, 'escape');
@@ -92,9 +106,34 @@ test('bは通話画面で起動し、入力欄では入力文字になる', asyn
     assert.equal(state.screen.focused, state.log);
     assert.equal(state.screen.children.length, initialChildren);
 
-    pressKey(state.screen, 'b');
+    pressKey(state.screen, 'f12');
     assert.equal(state.screen.grabKeys, true);
     assert.equal(state.screen.children.length, initialChildren + 1);
+
+    pressKey(state.screen, 'f12');
+    assert.equal(state.screen.grabKeys, false, 'F12 returns without reopening on the same keypress');
+    assert.equal(state.screen.children.length, initialChildren);
+  } finally {
+    await closeRoom(state);
+  }
+});
+
+test('/boss入力は一時画面を開き、任意のキーで部屋へ戻る', async () => {
+  const state = makeRoomView();
+  try {
+    const initialChildren = state.screen.children.length;
+    pressKey(state.screen, 'i');
+    await new Promise(resolve => setImmediate(resolve));
+    state.input.setValue('/boss');
+    pressKey(state.screen, 'enter');
+    assert.equal(state.screen.grabKeys, true);
+    assert.equal(state.screen.children.length, initialChildren + 1);
+    assert.deepEqual(state.sent, [], '/boss is a local screen switch, not a chat message');
+
+    pressKey(state.screen, 'x');
+    assert.equal(state.screen.grabKeys, false);
+    assert.equal(state.screen.children.length, initialChildren);
+    assert.equal(state.screen.focused, state.log);
   } finally {
     await closeRoom(state);
   }

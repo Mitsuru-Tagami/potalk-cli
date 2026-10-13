@@ -14,6 +14,15 @@ import { openLobby, matchRoom } from '../lib/lobby.mjs';
 import { padWidth, tuiText } from '../lib/text.mjs';
 import { showRoom } from './roomview.mjs';
 import { fixBlessedWidths } from '../lib/tui.mjs';
+import { bindBossScreenShortcut, startBossScreen } from './boss-screen.mjs';
+
+export function bindLobbyBossScreenShortcut(screen, { onOpen, isRoomActive = () => false, isSearching = () => false, isBossScreenActive = () => false }) {
+  return bindBossScreenShortcut(screen, {
+    onOpen,
+    isEnabled: () => !isRoomActive() && !isSearching(),
+    isActive: isBossScreenActive
+  });
+}
 
 /**
  * ロビーのTUI画面を起動し、メインループを開始します。
@@ -71,7 +80,7 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
   });
   const helpLine = blessed.box({
     parent: mainBox, bottom: 1, left: 0, width: '100%-2', height: 1,
-    content: '  j/k: Move | Enter: 入る | /: 絞り込み | r: Refresh | q: Quit', style: { fg: 'gray' }
+    content: '  j/k: Move | Enter: 入る | /: 絞り込み | F12: 週次メモ | r: Refresh | q: Quit', style: { fg: 'gray' }
   });
   // 絞り込みの入力欄（/ で開く。Vim の検索と同じ感覚）。キーの説明の行に重ねて出す
   const searchBox = blessed.textbox({
@@ -134,6 +143,17 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
   // ── 絞り込み ── / で入力欄を開き、打つたびに一覧を絞る。Enter で確定（一覧へ戻る）、Esc で解除
   const searching = () => screen.focused === searchBox;
   const closeSearch = () => { searchBox.hide(); helpLine.show(); roomList.focus(); render(); };
+  let bossScreen = null;
+  const openBossScreen = () => {
+    if (bossScreen?.active) return;
+    bossScreen = startBossScreen(screen, { onClose: () => { bossScreen = null; } });
+  };
+  const unbindBossShortcut = bindLobbyBossScreenShortcut(screen, {
+    onOpen: openBossScreen,
+    isRoomActive: () => !!current,
+    isSearching: searching,
+    isBossScreenActive: () => !!bossScreen?.active
+  });
   screen.key(['/'], () => {
     if (current || searching()) return;
     helpLine.hide(); searchBox.show();
@@ -160,6 +180,8 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
   let quitting = false;
   const quitApp = async () => {
     if (quitting) return; quitting = true;
+    unbindBossShortcut();
+    bossScreen?.close({ render: false });
     setTimeout(() => process.exit(0), 4000).unref();   // 何かで詰まっても必ず終わる
     if (current) await current.close();
     await lobby?.leave();
