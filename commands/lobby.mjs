@@ -15,13 +15,29 @@ import { padWidth, tuiText } from '../lib/text.mjs';
 import { showRoom } from './roomview.mjs';
 import { fixBlessedWidths } from '../lib/tui.mjs';
 import { bindBossScreenShortcut, startBossScreen } from './boss-screen.mjs';
+import { bindKonamiKeySequence } from '../lib/easter-egg.mjs';
+import { startEasterEggScreen } from './easter-egg-screen.mjs';
 
-export function bindLobbyBossScreenShortcut(screen, { onOpen, isRoomActive = () => false, isSearching = () => false, isBossScreenActive = () => false }) {
+export function bindLobbyBossScreenShortcut(screen, { onOpen, isRoomActive = () => false, isSearching = () => false, isBossScreenActive = () => false, isEasterEggActive = () => false }) {
   return bindBossScreenShortcut(screen, {
     onOpen,
-    isEnabled: () => !isRoomActive() && !isSearching(),
+    isEnabled: () => !isRoomActive() && !isSearching() && !isEasterEggActive(),
     isActive: isBossScreenActive
   });
+}
+
+export function bindLobbyKonamiSequence(screen, {
+  onOpen,
+  isRoomActive = () => false,
+  isSearching = () => false,
+  isBossScreenActive = () => false,
+  isEasterEggActive = () => false,
+  launchOnStart = false
+} = {}) {
+  const isEnabled = () => !isRoomActive() && !isSearching() && !isBossScreenActive() && !isEasterEggActive();
+  const unbind = bindKonamiKeySequence(screen.program, { onMatch: onOpen, isEnabled });
+  if (launchOnStart && isEnabled()) onOpen?.();
+  return unbind;
 }
 
 /**
@@ -31,8 +47,9 @@ export function bindLobbyBossScreenShortcut(screen, { onOpen, isRoomActive = () 
  * @param {string} [options.notice=''] - 起動時に画面上部に表示するお知らせテキスト
  * @param {boolean} [options.sound=true] - 音声を鳴らすかどうか（スピーカー有効化）
  * @param {string|null} [options.tts] - 受信チャット本文を渡す外部TTSコマンド
+ * @param {boolean} [options.konami=false] - 一時テスト用。起動直後に隠し演出を表示
  */
-export async function runLobby({ profile, cardManager = null, notice = '', sound = true, tts = null } = {}) {
+export async function runLobby({ profile, cardManager = null, notice = '', sound = true, tts = null, konami = false } = {}) {
   // ログで TUI が崩れないよう、標準出力を無効化（デバッグ用のファイル出力は役目を終えたため削除）
   process.on('uncaughtException', () => {});
   process.on('unhandledRejection', () => {});
@@ -132,7 +149,7 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
     const r = shown[index];
     if (!r || current || !lobby) return;
     mainBox.hide();
-    current = showRoom(screen, { target: { roomId: r.id, name: r.rn }, profile, cardManager, lobby, sound, tts, onInterrupt: quitApp });
+    current = showRoom(screen, { target: { roomId: r.id, name: r.rn }, profile, cardManager, lobby, sound, tts });
     note = (await current.done) || '';
     current = null;
     mainBox.show();
@@ -144,6 +161,7 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
   const searching = () => screen.focused === searchBox;
   const closeSearch = () => { searchBox.hide(); helpLine.show(); roomList.focus(); render(); };
   let bossScreen = null;
+  let easterEggMode = null;
   const openBossScreen = () => {
     if (bossScreen?.active) return;
     bossScreen = startBossScreen(screen, { onClose: () => { bossScreen = null; } });
@@ -152,7 +170,24 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
     onOpen: openBossScreen,
     isRoomActive: () => !!current,
     isSearching: searching,
-    isBossScreenActive: () => !!bossScreen?.active
+    isBossScreenActive: () => !!bossScreen?.active,
+    isEasterEggActive: () => !!easterEggMode?.active
+  });
+  const openEasterEgg = () => {
+    if (easterEggMode?.active || bossScreen?.active || current || searching()) return;
+    easterEggMode = startEasterEggScreen(screen, {
+      sound,
+      onInterrupt: () => quitApp(),
+      onClose: () => { easterEggMode = null; }
+    });
+  };
+  const unbindKonamiSequence = bindLobbyKonamiSequence(screen, {
+    onOpen: openEasterEgg,
+    isRoomActive: () => !!current,
+    isSearching: searching,
+    isBossScreenActive: () => !!bossScreen?.active,
+    isEasterEggActive: () => !!easterEggMode?.active,
+    launchOnStart: konami
   });
   screen.key(['/'], () => {
     if (current || searching()) return;
@@ -181,7 +216,9 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
   const quitApp = async () => {
     if (quitting) return; quitting = true;
     unbindBossShortcut();
+    unbindKonamiSequence();
     bossScreen?.close({ render: false });
+    easterEggMode?.close({ render: false });
     setTimeout(() => process.exit(0), 4000).unref();   // 何かで詰まっても必ず終わる
     if (current) await current.close();
     await lobby?.leave();

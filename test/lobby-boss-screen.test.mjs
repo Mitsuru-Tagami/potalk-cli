@@ -21,12 +21,14 @@ test('ロビーではF12で一時画面を開閉でき、検索中・入室中�
   const screen = makeScreen();
   let inRoom = false;
   let searching = false;
+  let easterEggActive = false;
   let openings = 0;
   let bossScreen = null;
   const unbind = bindLobbyBossScreenShortcut(screen, {
     isRoomActive: () => inRoom,
     isSearching: () => searching,
     isBossScreenActive: () => !!bossScreen?.active,
+    isEasterEggActive: () => easterEggActive,
     onOpen: () => {
       if (bossScreen?.active) return;
       openings++;
@@ -59,6 +61,15 @@ test('ロビーではF12で一時画面を開閉でき、検索中・入室中�
 
     pressKey(screen, 'f12');
     assert.equal(openings, 2, 'F12 works again after returning to the lobby');
+    assert.equal(bossScreen.active, true);
+    bossScreen.close({ render: false });
+
+    easterEggActive = true;
+    pressKey(screen, 'f12');
+    assert.equal(openings, 2, 'F12 does not stack over the staff-roll overlay');
+    easterEggActive = false;
+    pressKey(screen, 'f12');
+    assert.equal(openings, 3, 'F12 works again after the staff-roll overlay closes');
     assert.equal(bossScreen.active, true);
   } finally {
     unbind();

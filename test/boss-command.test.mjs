@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { enterRoom } from '../lib/session.mjs';
 import { completeRoomCommand, roomCommandMatches } from '../lib/commands.mjs';
-import { EASTER_EGG_INPUT } from '../lib/easter-egg.mjs';
+import { KONAMI_KEY_SEQUENCE_LABEL } from '../lib/easter-egg.mjs';
 
-function makeSession({ onBoss = null, onEasterEgg = null } = {}) {
+function makeSession({ onBoss = null } = {}) {
   const messages = [];
   const sent = [];
   const room = {
@@ -19,7 +19,7 @@ function makeSession({ onBoss = null, onEasterEgg = null } = {}) {
     target: { roomId: room.roomId, name: 'test room' },
     profile: { name: 'CLI', emoji: '💻' },
     lobby: { announce() {}, rooms: () => [] }, sound: false,
-    onText: message => messages.push(message), onBoss, onEasterEgg,
+    onText: message => messages.push(message), onBoss,
     openRoomImpl: () => room,
     createTtsImpl: () => ({ speak() {}, close() {} })
   });
@@ -63,46 +63,20 @@ test('/bossは行表示ではTUI専用と案内し、引数付きなら画面を
   }
 });
 
-test('秘密の↑↑↓↓←→←→BA入力はローカル演出だけを起動し、チャットへ送らない', async () => {
-  let entries = 0;
-  const state = makeSession({ onEasterEgg: () => { entries++; } });
+test('部屋では秘密配列は普通のチャットで、/konamiも起動コマンドではない', async () => {
+  const state = makeSession();
   try {
-    const result = state.session.say(` ${EASTER_EGG_INPUT} `);
-    assert.equal(result.easterEgg, true);
-    assert.equal(entries, 1);
-    assert.deepEqual(state.sent, []);
+    const result = state.session.say(KONAMI_KEY_SEQUENCE_LABEL);
+    assert.equal(result.easterEgg, undefined);
+    assert.deepEqual(state.sent, [KONAMI_KEY_SEQUENCE_LABEL]);
+    assert.deepEqual(roomCommandMatches('/k'), []);
+    assert.equal(state.session.command('/konami'), false);
+    const helpStart = state.messages.length;
+    state.session.command('/help');
+    assert.equal(state.messages.slice(helpStart).some(message => message.includes('/konami')), false);
+    assert.deepEqual(state.sent, [KONAMI_KEY_SEQUENCE_LABEL]);
   } finally {
     await state.session.leave();
-  }
-});
-
-test('隠し /konami は補完・ヘルプに出さず、行表示では送信せずTUI専用と案内する', async () => {
-  let entries = 0;
-  const tui = makeSession({ onEasterEgg: () => { entries++; } });
-  try {
-    assert.deepEqual(roomCommandMatches('/k'), []);
-    assert.equal(tui.session.command('/konami'), true);
-    assert.equal(entries, 1);
-    assert.deepEqual(tui.sent, []);
-    tui.session.command('/konami extra');
-    assert.equal(entries, 1);
-    assert.match(tui.messages.at(-1), /使用方法：\/konami/u);
-    const helpStart = tui.messages.length;
-    tui.session.command('/help');
-    assert.equal(tui.messages.slice(helpStart).some(message => message.includes('/konami')), false);
-  } finally {
-    await tui.session.leave();
-  }
-
-  const lineMode = makeSession();
-  try {
-    assert.equal(lineMode.session.command('/konami'), true);
-    assert.match(lineMode.messages.at(-1), /TUI.*のみ/u);
-    assert.equal(lineMode.session.say(EASTER_EGG_INPUT).easterEgg, true);
-    assert.match(lineMode.messages.at(-1), /送信されていません/u);
-    assert.deepEqual(lineMode.sent, []);
-  } finally {
-    await lineMode.session.leave();
   }
 });
 

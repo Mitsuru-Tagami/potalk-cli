@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { PassThrough, Writable } from 'node:stream';
 import blessed from 'blessed';
 import { showRoom } from '../commands/roomview.mjs';
+import { KONAMI_KEY_SEQUENCE_LABEL, KONAMI_SEQUENCE } from '../lib/easter-egg.mjs';
 
-function makeRoomView({ startEasterEggImpl, onInterrupt } = {}) {
+function makeRoomView() {
   const inputStream = new PassThrough();
   const output = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
   const screen = blessed.screen({ input: inputStream, output, terminal: 'xterm', smartCSR: false });
@@ -34,7 +35,7 @@ function makeRoomView({ startEasterEggImpl, onInterrupt } = {}) {
   const view = showRoom(screen, {
     target: { roomId: 'test-room', name: 'テスト部屋' },
     profile: { name: 'CLI', emoji: '💻' },
-    lobby: {}, sound: false, startEasterEggImpl, onInterrupt,
+    lobby: {}, sound: false,
     enterRoomImpl: options => { callbacks = options; return session; }
   });
   const frame = screen.children[0];
@@ -186,35 +187,28 @@ test('入力欄のEscapeキャンセルは二連続判定に持ち越さない',
   }
 });
 
-test('部屋の終了時は隠し画面を閉じて、親のCtrl-C終了処理を引き継ぐ', async () => {
-  let closeCount = 0;
-  let interruptCount = 0;
-  let closeOptions;
-  let requestInterrupt;
-  const state = makeRoomView({
-    onInterrupt: () => { interruptCount++; },
-    startEasterEggImpl: (_screen, options) => {
-      requestInterrupt = options.onInterrupt;
-      return {
-        active: true,
-        close(args) {
-          closeCount++;
-          closeOptions = args;
-          options.onClose();
-        }
-      };
-    }
-  });
+test('コナミ配列・チャット文字列・/konamiは部屋内で演出を起動しない', async () => {
+  const state = makeRoomView();
   try {
-    state.callbacks().onEasterEgg();
-    requestInterrupt();
-    assert.equal(interruptCount, 1);
-    await state.view.close();
-    await state.view.done;
-    assert.equal(closeCount, 1);
-    assert.equal(closeOptions.render, false, 'the room performs the final redraw after removing the overlay');
-    assert.equal(state.leaves, 1);
+    const initialChildren = state.screen.children.length;
+    for (const name of KONAMI_SEQUENCE) pressKey(state.screen, name);
+    assert.equal(state.screen.grabKeys, false);
+    assert.equal(state.screen.children.length, initialChildren);
+
+    pressKey(state.screen, 'i');
+    await new Promise(resolve => setImmediate(resolve));
+    state.input.setValue(KONAMI_KEY_SEQUENCE_LABEL);
+    pressKey(state.screen, 'enter');
+    assert.deepEqual(state.sent, [KONAMI_KEY_SEQUENCE_LABEL]);
+    assert.equal(state.screen.children.length, initialChildren);
+
+    pressKey(state.screen, 'i');
+    await new Promise(resolve => setImmediate(resolve));
+    state.input.setValue('/konami');
+    pressKey(state.screen, 'enter');
+    assert.deepEqual(state.sent, [KONAMI_KEY_SEQUENCE_LABEL]);
+    assert.equal(state.screen.children.length, initialChildren);
   } finally {
-    state.screen.destroy();
+    await closeRoom(state);
   }
 });

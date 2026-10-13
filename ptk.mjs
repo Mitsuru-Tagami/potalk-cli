@@ -8,6 +8,7 @@
  * - 独自設定ファイル（~/.config/ptk/config.jsonなど）からのデフォルト設定読み込み
  * - /helpの多言語対応やカラー化
  */
+import { parseCliArgs, parseLobbyOptions } from './lib/cli-args.mjs';
 
 
 const HELP = `
@@ -56,10 +57,7 @@ const HELP = `
 `;
 
 // `ptk --name 名前` のようにオプションだけなら、コマンドは lobby（--help / -h はそのまま help へ）
-const argv = process.argv.slice(2);
-const bare = !argv.length || (argv[0].startsWith('-') && !['--help', '-h'].includes(argv[0]));
-const cmd = bare ? 'lobby' : argv[0];
-const rest = bare ? argv : argv.slice(1);
+const { cmd, rest } = parseCliArgs(process.argv.slice(2));
 
 const opt = (name, def) => {
   const i = rest.indexOf(`--${name}`);
@@ -82,7 +80,8 @@ const profileFromOpts = async () => {
 switch (cmd) {
   case 'lobby':
   case 'ロビー':
-    await (await import('./commands/lobby.mjs')).runLobby({ ...await profileFromOpts(), sound: !rest.includes('--no-sound'), tts: opt('tts', null) });
+    // --konami はロビー動作確認用の一時フラグ。検証後に削除する。
+    await (await import('./commands/lobby.mjs')).runLobby({ ...await profileFromOpts(), ...parseLobbyOptions(rest) });
     break;
   case 'list':
   case '一覧':
