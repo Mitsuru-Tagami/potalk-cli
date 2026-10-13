@@ -34,11 +34,12 @@ const hhmm = () => new Date().toTimeString().slice(0, 5);
  * @param {{name:string, emoji:string}} o.profile - 自身のプロフィール
  * @param {object} o.lobby - ロビーオブジェクト
  * @param {boolean} o.sound - 音声を有効にするか
+ * @param {typeof enterRoom} [o.enterRoomImpl=enterRoom] - テスト用のセッション生成関数
  * @returns {{ done: Promise<string|undefined>, close: () => Promise<void> }}
  *   done は退出（q・満員）時にresolveするPromise。
  *   close は外部（Ctrl-Cなど）から強制的に退出・画面破棄させる関数。
  */
-export function showRoom(screen, { target, profile, cardManager = null, lobby, sound, tts = null }) {
+export function showRoom(screen, { target, profile, cardManager = null, lobby, sound, tts = null, enterRoomImpl = enterRoom }) {
   let closeRoom;
   const done = new Promise(resolve => {
     const frame = blessed.box({
@@ -65,6 +66,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
     setHelp(false);
 
     let session = null, closing = false, cardEditing = false, cardModal = null, cancelCardPrompt = null;
+    let bossMode = false, bossOverlay = null, bossKeyListener = null, previousGrabKeys = false, previousClickables = null;
     const say = text => { log.log(tuiText(`${hhmm()}  ${text}`)); screen.render(); };
 
     // Blessed の Textbox は Tab を文字として挿入するため、入力処理の前に補完へ回す。
@@ -120,6 +122,65 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
       finally { cardEditing = false; if (!closing) { log.focus(); screen.render(); } }
     }
 
+    function leaveBossMode() {
+      if (!bossMode) return;
+      bossMode = false;
+      if (bossKeyListener) screen.program.removeListener('keypress', bossKeyListener);
+      bossKeyListener = null;
+      screen.grabKeys = previousGrabKeys;
+      bossOverlay?.hide();
+      bossOverlay?.destroy();
+      bossOverlay = null;
+      if (previousClickables) screen.clickable = previousClickables;
+      previousClickables = null;
+      if (screen.focused !== log) log.focus();
+      if (!closing) screen.render();
+    }
+
+    function enterBossMode() {
+      if (bossMode || closing) return;
+      bossMode = true;
+      previousGrabKeys = screen.grabKeys;
+      previousClickables = screen.clickable.slice();
+      screen.grabKeys = true; // Blessed の画面キー処理を止め、終了用のキーだけを受け取る
+      bossOverlay = blessed.box({
+        parent: screen, top: 0, left: 0, width: '100%', height: '100%',
+        style: { fg: 'white', bg: 'black' }, tags: false,
+        clickable: true, keyable: true, autoFocus: false
+      });
+      // 全面レイヤーだけを配送先にして、背後のログや入力欄へマウスを通さない。
+      bossOverlay.on('mouse', () => {});
+      bossOverlay.on('click', () => {});
+      screen.clickable = [bossOverlay];
+      const updatedAt = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'short', timeStyle: 'short' }).format(new Date());
+      blessed.box({
+        parent: bossOverlay, top: 'center', left: 'center', width: '88%', height: 17,
+        border: { type: 'line' }, label: ' 週次共有メモ ',
+        content: [
+          `更新 ${updatedAt}     チーム共有`,
+          '',
+          '今週の確認事項',
+          '  [済] 定例向けの進捗を整理',
+          '  [中] リリースチェック項目を確認',
+          '  [予] 次回レビューの議題をまとめる',
+          '',
+          '項目             状況       メモ',
+          'UI改善           進行中     表示を確認',
+          '運用メモ         確認中     手順書を更新',
+          '定例準備         完了       アジェンダを共有',
+          '',
+          '次回の予定: チーム定例（木曜 14:00）',
+          '',
+          '共有メモを表示中'
+        ].join('\n'),
+        style: { fg: 'white', bg: 'black', border: { fg: 'cyan' } }, tags: false
+      });
+      bossKeyListener = () => leaveBossMode();
+      screen.program.on('keypress', bossKeyListener);
+      bossOverlay.focus();
+      screen.render();
+    }
+
     /**
      * 参加者リストやステータス表示を更新・再描画します。
      */
@@ -146,6 +207,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
      */
     async function close(note) {
       if (closing) return; closing = true;
+      leaveBossMode();
       cancelCardPrompt?.();
       clearInterval(ticker);
       keys.forEach(([k, fn]) => screen.unkey(k, fn));
@@ -157,19 +219,20 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
       resolve(note);
     }
 
-    session = enterRoom({
+    session = enterRoomImpl({
       target, profile, cardManager, lobby, sound, tts,
       onText: say,
       onChange: draw,
       onFull: cap => close(`満員でした（最大 ${cap}人）`),
-      onCardEdit: editCard
+      onCardEdit: editCard,
+      onBoss: enterBossMode
     });
     // 話している印（🔊）は声の大きさで変わるので、出来事を待たずに描き直す
     const ticker = setInterval(draw, 400);
 
     // ── キー操作 ── 画面全体に付けて、退出時に外す（要素に付けると子にフォーカスがあるとき届かない）。
     // 入力欄にいる間は、1文字キー（m, q）を拾わない
-    const typing = () => cardEditing || screen.focused === input;
+    const typing = () => bossMode || cardEditing || screen.focused === input;
     let submittedAt = 0;   // 決定の Enter が、そのまま「入力欄を開く」にも届いてしまわないように
     const openInput = () => { if (typing() || Date.now() - submittedAt < 150) return; setHelp(true); input.focus(); screen.render(); };
     const keys = [
