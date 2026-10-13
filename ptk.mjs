@@ -42,7 +42,6 @@ const HELP = `
   /seiza [星座] 88星座から解説を選んで部屋に送信する
   /uranai [星座] 12星座占いのひとことを部屋に送信する
   /omikuji      運勢と今日の小さな提案を部屋に送信する
-  /boss         TUIを週次メモ画面へ一時切替（F12でも開き、任意のキーで戻る）
   /card         自分の名刺（ひとこと・SNS・お礼窓口）を対話形式で編集する
   /card <番号>  相手の名刺を要求する（SNS外部照会なし）
   /card <番号> --verify  名刺鍵応答後、X・GitHub・Nostrの証拠を照合する
@@ -80,7 +79,7 @@ const profileFromOpts = async () => {
 switch (cmd) {
   case 'lobby':
   case 'ロビー':
-    // --konami はロビー動作確認用の一時フラグ。検証後に削除する。
+    // --konami / --boss はロビー動作確認用の一時フラグ。
     await (await import('./commands/lobby.mjs')).runLobby({ ...await profileFromOpts(), ...parseLobbyOptions(rest) });
     break;
   case 'list':

@@ -12,7 +12,6 @@ function makeRoomView() {
   screen.program.cols = 80;
   screen.program.rows = 24;
 
-  let callbacks;
   let muteToggles = 0;
   let leaves = 0;
   const sent = [];
@@ -24,11 +23,7 @@ function makeRoomView() {
     micOn: false,
     toggleMute() { muteToggles++; },
     toggleTalk() {},
-    command(line) {
-      if (line.trim() !== '/boss') return false;
-      callbacks.onBoss();
-      return true;
-    },
+    command() { return false; },
     say(text) { sent.push(text); },
     async leave() { leaves++; }
   };
@@ -36,11 +31,11 @@ function makeRoomView() {
     target: { roomId: 'test-room', name: 'テスト部屋' },
     profile: { name: 'CLI', emoji: '💻' },
     lobby: {}, sound: false,
-    enterRoomImpl: options => { callbacks = options; return session; }
+    enterRoomImpl: () => session
   });
   const frame = screen.children[0];
   return {
-    screen, view, callbacks: () => callbacks, session, frame,
+    screen, view, session, frame,
     input: frame.children.find(element => element.type === 'textbox'),
     log: frame.children.find(element => element.type === 'log'),
     get muteToggles() { return muteToggles; },
@@ -59,11 +54,11 @@ async function closeRoom(state) {
   state.screen.destroy();
 }
 
-test('/boss画面はマウスでは閉じず、任意のキーで戻り、通話操作に触れない', async () => {
+test('F12で開いたboss画面はマウスでは閉じず、任意のキーで戻り、通話操作に触れない', async () => {
   const state = makeRoomView();
   try {
     const initialChildren = state.screen.children.length;
-    state.callbacks().onBoss();
+    pressKey(state.screen, 'f12');
     assert.equal(state.screen.grabKeys, true);
     assert.equal(state.screen.children.length, initialChildren + 1);
     const overlay = state.screen.children.at(-1);
@@ -119,7 +114,7 @@ test('F12は通話画面で起動し、入力中は安全で、bは通常入力�
   }
 });
 
-test('/boss入力は一時画面を開き、任意のキーで部屋へ戻る', async () => {
+test('/boss入力はboss画面を開かず、チャットにも送信しない', async () => {
   const state = makeRoomView();
   try {
     const initialChildren = state.screen.children.length;
@@ -127,14 +122,10 @@ test('/boss入力は一時画面を開き、任意のキーで部屋へ戻る', 
     await new Promise(resolve => setImmediate(resolve));
     state.input.setValue('/boss');
     pressKey(state.screen, 'enter');
-    assert.equal(state.screen.grabKeys, true);
-    assert.equal(state.screen.children.length, initialChildren + 1);
-    assert.deepEqual(state.sent, [], '/boss is a local screen switch, not a chat message');
-
-    pressKey(state.screen, 'x');
     assert.equal(state.screen.grabKeys, false);
     assert.equal(state.screen.children.length, initialChildren);
     assert.equal(state.screen.focused, state.log);
+    assert.deepEqual(state.sent, [], '/boss is not a local screen switch or a chat message');
   } finally {
     await closeRoom(state);
   }

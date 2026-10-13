@@ -18,12 +18,15 @@ import { bindBossScreenShortcut, startBossScreen } from './boss-screen.mjs';
 import { bindKonamiKeySequence } from '../lib/easter-egg.mjs';
 import { startEasterEggScreen } from './easter-egg-screen.mjs';
 
-export function bindLobbyBossScreenShortcut(screen, { onOpen, isRoomActive = () => false, isSearching = () => false, isBossScreenActive = () => false, isEasterEggActive = () => false }) {
-  return bindBossScreenShortcut(screen, {
+export function bindLobbyBossScreenShortcut(screen, { onOpen, isRoomActive = () => false, isSearching = () => false, isBossScreenActive = () => false, isEasterEggActive = () => false, launchOnStart = false }) {
+  const isEnabled = () => !isRoomActive() && !isSearching() && !isEasterEggActive();
+  const unbind = bindBossScreenShortcut(screen, {
     onOpen,
-    isEnabled: () => !isRoomActive() && !isSearching() && !isEasterEggActive(),
+    isEnabled,
     isActive: isBossScreenActive
   });
+  if (launchOnStart && isEnabled()) onOpen?.();
+  return unbind;
 }
 
 export function bindLobbyKonamiSequence(screen, {
@@ -48,8 +51,9 @@ export function bindLobbyKonamiSequence(screen, {
  * @param {boolean} [options.sound=true] - 音声を鳴らすかどうか（スピーカー有効化）
  * @param {string|null} [options.tts] - 受信チャット本文を渡す外部TTSコマンド
  * @param {boolean} [options.konami=false] - 一時テスト用。起動直後に隠し演出を表示
+ * @param {boolean} [options.boss=false] - 一時テスト用。起動直後に週次メモ画面を表示
  */
-export async function runLobby({ profile, cardManager = null, notice = '', sound = true, tts = null, konami = false } = {}) {
+export async function runLobby({ profile, cardManager = null, notice = '', sound = true, tts = null, konami = false, boss = false } = {}) {
   // ログで TUI が崩れないよう、標準出力を無効化（デバッグ用のファイル出力は役目を終えたため削除）
   process.on('uncaughtException', () => {});
   process.on('unhandledRejection', () => {});
@@ -171,7 +175,8 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
     isRoomActive: () => !!current,
     isSearching: searching,
     isBossScreenActive: () => !!bossScreen?.active,
-    isEasterEggActive: () => !!easterEggMode?.active
+    isEasterEggActive: () => !!easterEggMode?.active,
+    launchOnStart: boss
   });
   const openEasterEgg = () => {
     if (easterEggMode?.active || bossScreen?.active || current || searching()) return;
