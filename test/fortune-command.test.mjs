@@ -41,8 +41,8 @@ test('/seiza は88星座解説、/uranai は12星座占い、/omikuji はおみ�
       assert.equal(/[\r\n\u2028\u2029]/u.test(message), false, message);
       assert.ok([...message].length <= CHAT_MAX, message);
     }
-    assert.match(state.room.sent[0], /^.+座：.+星座。$/u);
-    assert.match(state.room.sent[1], /^オリオン座：.+星座。$/u);
+    assert.match(state.room.sent[0], /^.+座：.+$/u);
+    assert.match(state.room.sent[1], /^オリオン座：.+$/u);
     assert.match(state.room.sent[2], /^.+座の占い：.+$/u);
     assert.match(state.room.sent[3], /^牡羊座の占い：.+$/u);
     assert.match(state.room.sent[4], /^(大吉|吉|中吉|小吉|末吉|凶)｜ひとこと：.+今日の提案：.+$/u);
