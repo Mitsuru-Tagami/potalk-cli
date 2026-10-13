@@ -4,7 +4,7 @@ import { PassThrough, Writable } from 'node:stream';
 import blessed from 'blessed';
 import { showRoom } from '../commands/roomview.mjs';
 
-function makeRoomView() {
+function makeRoomView({ startEasterEggImpl, onInterrupt } = {}) {
   const inputStream = new PassThrough();
   const output = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
   const screen = blessed.screen({ input: inputStream, output, terminal: 'xterm', smartCSR: false });
@@ -27,7 +27,7 @@ function makeRoomView() {
   const view = showRoom(screen, {
     target: { roomId: 'test-room', name: 'テスト部屋' },
     profile: { name: 'CLI', emoji: '💻' },
-    lobby: {}, sound: false,
+    lobby: {}, sound: false, startEasterEggImpl, onInterrupt,
     enterRoomImpl: options => { callbacks = options; return session; }
   });
   const frame = screen.children[0];
@@ -144,5 +144,38 @@ test('入力欄のEscapeキャンセルは二連続判定に持ち越さない',
     assert.equal(state.screen.children.length, initialChildren + 1);
   } finally {
     await closeRoom(state);
+  }
+});
+
+test('部屋の終了時は隠し画面を閉じて、親のCtrl-C終了処理を引き継ぐ', async () => {
+  let closeCount = 0;
+  let interruptCount = 0;
+  let closeOptions;
+  let requestInterrupt;
+  const state = makeRoomView({
+    onInterrupt: () => { interruptCount++; },
+    startEasterEggImpl: (_screen, options) => {
+      requestInterrupt = options.onInterrupt;
+      return {
+        active: true,
+        close(args) {
+          closeCount++;
+          closeOptions = args;
+          options.onClose();
+        }
+      };
+    }
+  });
+  try {
+    state.callbacks().onEasterEgg();
+    requestInterrupt();
+    assert.equal(interruptCount, 1);
+    await state.view.close();
+    await state.view.done;
+    assert.equal(closeCount, 1);
+    assert.equal(closeOptions.render, false, 'the room performs the final redraw after removing the overlay');
+    assert.equal(state.leaves, 1);
+  } finally {
+    state.screen.destroy();
   }
 });
