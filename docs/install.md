@@ -125,6 +125,16 @@ sudo apt update
 sudo apt install sox git
 ```
 
+`/cp`・`/copy` で部屋URLをコピーする場合、クリップボード用のnpmパッケージは使わず、OSのコマンドを利用します。Linuxでは、セッションに合った次のいずれかをインストールしてください。
+
+```bash
+sudo apt install wl-clipboard  # Wayland（wl-copy）
+sudo apt install xclip         # X11
+# xsel も代替として利用できます
+```
+
+macOSでは標準の `pbcopy`、Windowsでは標準の `clip.exe` を利用します。Linuxで対応コマンドやデスクトップセッションが使えない場合は、招待URLを手動で共有してください。
+
 Node.jsの導入方法はディストリビューションにより異なります。Node.js公式の[ダウンロードページ](https://nodejs.org/en/download/)または[npmの案内](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm/)を参照してください。その後はmacOSと同じ要領でリポジトリを取得し、`npm ci` を実行します。
 
 VOICEVOX／COEIROINKを使ったBYOE読み上げ例は、現在はLinux Mint向けに別ページで説明しています：[VOICEVOX](voicevox-tts.md)・[COEIROINK](coeiroink-tts.md)。
