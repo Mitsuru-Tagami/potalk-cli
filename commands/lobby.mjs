@@ -123,7 +123,7 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
     const r = shown[index];
     if (!r || current || !lobby) return;
     mainBox.hide();
-    current = showRoom(screen, { target: { roomId: r.id, name: r.rn }, profile, cardManager, lobby, sound, tts });
+    current = showRoom(screen, { target: { roomId: r.id, name: r.rn }, profile, cardManager, lobby, sound, tts, onInterrupt: quitApp });
     note = (await current.done) || '';
     current = null;
     mainBox.show();
