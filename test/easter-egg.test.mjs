@@ -6,8 +6,9 @@ import blessed from 'blessed';
 import {
   AULD_LANG_SYNE_DURATION_MS,
   AULD_LANG_SYNE_MML,
-  EASTER_EGG_INPUT,
-  isEasterEggInput,
+  KONAMI_KEY_SEQUENCE_LABEL,
+  KONAMI_SEQUENCE,
+  bindKonamiKeySequence,
   parseMml,
   renderMmlPcm,
   startMmlPlayback
@@ -50,13 +51,24 @@ function makeTimers() {
 
 function chunkLength(chunks) { return chunks.reduce((sum, chunk) => sum + chunk.length, 0); }
 
-test('秘密入力は完全一致のみを認識する', () => {
-  assert.equal(EASTER_EGG_INPUT, '↑↑↓↓←→←→BA');
-  assert.equal(isEasterEggInput(EASTER_EGG_INPUT), true);
-  assert.equal(isEasterEggInput(`  ${EASTER_EGG_INPUT}  `), true);
-  assert.equal(isEasterEggInput(`x${EASTER_EGG_INPUT}`), false);
-  assert.equal(isEasterEggInput('↑↑↓↓←→←→ba'), false);
-  assert.equal(isEasterEggInput(''), false);
+test('秘密配列は実際のキーイベントだけで判定し、大文字B/Aも受け付ける', () => {
+  assert.deepEqual(KONAMI_SEQUENCE, ['up', 'up', 'down', 'down', 'left', 'right', 'left', 'right', 'b', 'a']);
+  assert.equal(KONAMI_KEY_SEQUENCE_LABEL, '↑↑↓↓←→←→BA');
+  const program = new EventEmitter();
+  let matches = 0;
+  const unbind = bindKonamiKeySequence(program, { onMatch: () => { matches++; } });
+  const press = name => program.emit('keypress', name, { name });
+  try {
+    press('up');
+    press('down'); // 誤入力で途中状態をリセット
+    for (const name of [...KONAMI_SEQUENCE.slice(0, -2), 'B', 'A']) press(name);
+    assert.equal(matches, 1);
+    unbind();
+    for (const name of KONAMI_SEQUENCE) press(name);
+    assert.equal(matches, 1, '解除後はキー列を検出しない');
+  } finally {
+    unbind();
+  }
 });
 
 test('MMLを音符イベントへ展開し、合成PCMは音声データを持つ', () => {

@@ -22,7 +22,6 @@ import { enterRoom } from '../lib/session.mjs';
 import { padWidth, tuiText } from '../lib/text.mjs';
 import { roomCommandMatches, commonCommandPrefix } from '../lib/commands.mjs';
 import { editCardInteractive } from './card-edit.mjs';
-import { startEasterEggScreen } from './easter-egg-screen.mjs';
 import { bindBossScreenShortcut, startBossScreen } from './boss-screen.mjs';
 
 const MEMBERS_H = 10;   // 参加者の段の高さ（定員 8 人＋見出し＋余白）
@@ -38,12 +37,11 @@ const hhmm = () => new Date().toTimeString().slice(0, 5);
  * @param {object} o.lobby - ロビーオブジェクト
  * @param {boolean} o.sound - 音声を有効にするか
  * @param {typeof enterRoom} [o.enterRoomImpl=enterRoom] - テスト用のセッション生成関数
- * @param {typeof startEasterEggScreen} [o.startEasterEggImpl=startEasterEggScreen] - テスト用の隠し画面生成関数
  * @returns {{ done: Promise<string|undefined>, close: () => Promise<void> }}
  *   done は退出（q・満員）時にresolveするPromise。
  *   close は外部（Ctrl-Cなど）から強制的に退出・画面破棄させる関数。
  */
-export function showRoom(screen, { target, profile, cardManager = null, lobby, sound, tts = null, onInterrupt = null, enterRoomImpl = enterRoom, startEasterEggImpl = startEasterEggScreen }) {
+export function showRoom(screen, { target, profile, cardManager = null, lobby, sound, tts = null, enterRoomImpl = enterRoom }) {
   let closeRoom;
   const done = new Promise(resolve => {
     const frame = blessed.box({
@@ -71,7 +69,6 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
 
     let session = null, closing = false, cardEditing = false, cardModal = null, cancelCardPrompt = null;
     let bossScreen = null, lastBossEscapeAt = 0;
-    let easterEggMode = null;
     const resetBossEscapeSequence = (_ch, key) => { if (key?.name !== 'escape') lastBossEscapeAt = 0; };
     screen.on('keypress', resetBossEscapeSequence);
     const say = text => { log.log(tuiText(`${hhmm()}  ${text}`)); screen.render(); };
@@ -146,18 +143,6 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
       });
     }
 
-    function enterEasterEggMode() {
-      if (easterEggMode || bossScreen?.active || closing) return;
-      lastBossEscapeAt = 0;
-      let mode;
-      mode = startEasterEggImpl(screen, {
-        sound,
-        onInterrupt: onInterrupt || (() => close()),
-        onClose: () => { if (easterEggMode === mode) easterEggMode = null; }
-      });
-      easterEggMode = mode;
-    }
-
     /**
      * 参加者リストやステータス表示を更新・再描画します。
      */
@@ -185,8 +170,6 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
     async function close(note) {
       if (closing) return; closing = true;
       lastBossEscapeAt = 0;
-      easterEggMode?.close({ render: false });
-      easterEggMode = null;
       leaveBossMode();
       unbindBossShortcut();
       cancelCardPrompt?.();
@@ -207,15 +190,14 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
       onChange: draw,
       onFull: cap => close(`満員でした（最大 ${cap}人）`),
       onCardEdit: editCard,
-      onBoss: enterBossMode,
-      onEasterEgg: enterEasterEggMode
+      onBoss: enterBossMode
     });
     // 話している印（🔊）は声の大きさで変わるので、出来事を待たずに描き直す
     const ticker = setInterval(draw, 400);
 
     // ── キー操作 ── 画面全体に付けて、退出時に外す（要素に付けると子にフォーカスがあるとき届かない）。
     // 入力欄や名刺編集の間は、1文字ショートカットを拾わない
-    const typing = () => !!bossScreen?.active || !!easterEggMode?.active || cardEditing || screen.focused === input;
+    const typing = () => !!bossScreen?.active || cardEditing || screen.focused === input;
     let submittedAt = 0;   // 決定の Enter が、そのまま「入力欄を開く」にも届いてしまわないように
     const openInput = () => { if (typing() || Date.now() - submittedAt < 150) return; lastBossEscapeAt = 0; setHelp(true); input.focus(); screen.render(); };
     const bossOnDoubleEscape = () => {
