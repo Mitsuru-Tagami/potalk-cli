@@ -21,6 +21,7 @@ function makeRoomView() {
     members: () => [],
     label: () => 'テスト部屋',
     micOn: false,
+    micMeter: () => ({ rms: 3000, peak: 7000 }),
     toggleMute() { muteToggles++; },
     toggleTalk() {},
     command() { return false; },
@@ -76,6 +77,19 @@ test('F12で開いたboss画面はマウスでは閉じず、任意のキーで�
     assert.equal(state.screen.children.includes(overlay), false);
     assert.equal(state.muteToggles, 0, 'the exit key must not trigger the hidden room shortcut');
     assert.equal(state.leaves, 0, 'the room session stays connected');
+  } finally {
+    await closeRoom(state);
+  }
+});
+
+test('マイクがオンのTUIにCLIへ届いた入力RMSとピークを表示する', async () => {
+  const state = makeRoomView();
+  try {
+    state.session.room.canTalk = true;
+    state.session.micOn = true;
+    await new Promise(resolve => setTimeout(resolve, 450));
+    const members = state.frame.children.find(element => element.type === 'box');
+    assert.match(members.getContent(), /RMS -\d+ dBFS \/ peak -\d+ dBFS/u);
   } finally {
     await closeRoom(state);
   }

@@ -23,6 +23,7 @@ const HELP = `
                       （引数なしならロビーから番号で選択）
   ptk create| 作成    [部屋名] 新しい部屋を作って入る（省略時は「あなたの名前の部屋」）
   ptk help  | --help  このヘルプを表示する
+  ptk --mic-test      既定マイクを5秒テスト（録音を保存せず、可能なら再生）
 
 【 オプション設定 】
   --name <名前>       あなたの表示名を設定する
@@ -76,7 +77,10 @@ const profileFromOpts = async () => {
   return { profile: r.profile, notice, cardManager };
 };
 
-switch (cmd) {
+if (cmd === 'lobby' && rest.includes('--mic-test')) {
+  const { runMicTest } = await import('./lib/mic-diagnostic.mjs');
+  if (!await runMicTest()) process.exitCode = 1;
+} else switch (cmd) {
   case 'lobby':
   case 'ロビー':
     // --konami / --boss はロビー動作確認用の一時フラグ。
