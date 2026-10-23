@@ -8,7 +8,13 @@
  * - 独自設定ファイル（~/.config/ptk/config.jsonなど）からのデフォルト設定読み込み
  * - /helpの多言語対応やカラー化
  */
-import { parseCliArgs, parseLobbyOptions } from './lib/cli-args.mjs';
+import { parseCliArgs, parseLobbyOptions, findRoomArgument } from './lib/cli-args.mjs';
+import { BOT_AUDIO_PIPEWIRE_CAPABILITY, parseBotAudioSource, parseBotAudioPipewire } from './lib/bot-audio.mjs';
+
+if (process.argv[2] === '--check-pipewire') {
+  process.stdout.write(BOT_AUDIO_PIPEWIRE_CAPABILITY);
+  process.exit(0);
+}
 
 
 const HELP = `
@@ -19,7 +25,7 @@ const HELP = `
   ptk lobby | ロビー  ロビー画面を開き、部屋を選んで入室する
   ptk list  | 一覧    通話中の部屋を一覧で出力する（--seconds N で待ち時間、既定 15）
   ptk join  | 参加    [招待リンク|部屋ID|部屋名の一部] を指定して部屋に入る
-                      （--events-jsonl で相手から受信したコメントをJSON Linesで出力）
+                      （--events-jsonl で受信コメントと既知参加者の入退室をJSON Linesで出力）
                       （引数なしならロビーから番号で選択）
   ptk create| 作成    [部屋名] 新しい部屋を作って入る（省略時は「あなたの名前の部屋」）
   ptk help  | --help  このヘルプを表示する
@@ -32,8 +38,10 @@ const HELP = `
                       ※未設定の初回起動時は「深煎りキリマンジャロ」のような
                         コーヒー銘柄の匿名ネームが自動で割り当てられます！
   --no-sound          音声を再生しない（ミュートモード。鳴らすにはsoxが必要）
-  --events-jsonl      受信コメントだけをJSON Linesで標準出力へ出し、画面表示は標準エラーへ
+  --events-jsonl      受信コメントと既知参加者の入退室をJSON Linesで標準出力へ出し、画面表示は標準エラーへ
   --tts <コマンド>    受信コメント本文を外部TTSコマンドへ非同期で渡す（例: 'espeak-ng -v ja'）
+  --bot-audio-source <BotSink_X.monitor>  BOT入力のPulseAudio monitor契約名
+  --bot-audio-pipewire  BOT入力を指定serialのPipeWire nodeから取得（環境変数が必要）
 
 【 通話中のチャットコマンド (部屋内で使用) 】
   /help         コマンド一覧とヘルプを表示する
@@ -58,6 +66,10 @@ const HELP = `
 
 // `ptk --name 名前` のようにオプションだけなら、コマンドは lobby（--help / -h はそのまま help へ）
 const { cmd, rest } = parseCliArgs(process.argv.slice(2));
+// BOT指定はprofile・mic-test・接続などの副作用より前に検証する。
+const pulseSource = parseBotAudioSource(rest, { command: cmd });
+const pipewire = parseBotAudioPipewire(rest, { command: cmd });
+if (pipewire && !pulseSource) throw new TypeError('--bot-audio-pipewire requires --bot-audio-source');
 
 const opt = (name, def) => {
   const i = rest.indexOf(`--${name}`);
@@ -102,13 +114,12 @@ if (cmd === 'lobby' && rest.includes('--mic-test')) {
   case '部屋をつくる':
   case '作成': {
     const creating = cmd === 'create' || cmd === '部屋をつくる' || cmd === '作成';
-    const FLAGS = ['--no-sound', '--events-jsonl'];   // 値を取らないオプション
-    const arg = rest.find((a, i) => !a.startsWith('--') && !(rest[i - 1]?.startsWith('--') && !FLAGS.includes(rest[i - 1])));
+    const arg = findRoomArgument(rest);
     const { profile, notice, cardManager } = await profileFromOpts();
     if (notice) console.error(notice);
     // 部屋名を付けずに作るときは「名前の部屋」（本家の defaultRoom と同じ）
     const create = creating ? (arg || `${profile.name}の部屋`) : null;
-    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create, profile, cardManager, sound: !rest.includes('--no-sound'), eventsJsonl: rest.includes('--events-jsonl'), tts: opt('tts', null) });
+    await (await import('./commands/join.mjs')).runJoin({ ref: creating ? null : arg, create, profile, cardManager, sound: !rest.includes('--no-sound'), eventsJsonl: rest.includes('--events-jsonl'), tts: opt('tts', null), pulseSource, pipewire });
     break;
   }
   default:

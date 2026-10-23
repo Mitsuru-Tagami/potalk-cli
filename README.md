@@ -33,7 +33,7 @@ GoやRustといった渋い言語も検討しましたが、動いている元�
 - 部屋内コマンドを Tab で補完できるようにし、`/cp`・`/copy` で部屋URLをクリップボードへコピーできるようにしました（Issue #22、#18）。
 - 本家と同じ条件で木の芽が成長し、ロビーと参加者一覧に段階バッジを表示するようにしました（Issue #25）。
 - `/card` で名刺（ひとこと・SNS ID・お礼窓口）を対話編集し、本家方式の鍵応答を使って交換できるようにしました（Issue #26）。
-- `ptk join` / `ptk create` に `--events-jsonl` を追加し、相手から受信したコメントをJSON Linesで標準出力へ流せるようにしました。
+- `ptk join` / `ptk create` の `--events-jsonl` で、相手から受信したコメントと既知参加者の入退室をJSON Linesで標準出力へ流せるようにしました。
 - `--tts <コマンド>` で受信コメント本文を任意の外部TTSコマンドへ非同期で渡せるようにしました（エンジンは同梱しません）。
 
 ### 2026-10-10
@@ -119,7 +119,7 @@ TUI の部屋の画面では、参加者（話している人に 🔊）・お�
 
 `/who` の参加者番号を使い、`/hbk <番号>` で相手をローカルミュート、`/unhbk <番号>` で解除できます（自分は1番）。対象は表示名ではなく、その接続の `peerId` です。ミュートした相手のチャットは画面表示・`--events-jsonl`・`--tts` のいずれにも流さず、音声は再生中のトラックを切り離し、新しいトラックも再生しません。解除すると保持している最新トラックを再接続します。入退室などの通知は通常どおり残り、ミュート状態を相手へ通知しません。状態は退出時に破棄されます。これは通信を止めるブロック機能ではなく、この端末で表示・再生しないための機能です。
 
-`ptk join` または `ptk create` に `--events-jsonl` を付けると、**相手から受信したチャットコメントだけ**を標準出力へJSON Linesで出力します。各行は `{"type":"chat","from":"💻表示名","text":"コメント本文"}` 形式です。システム通知や自分が送った発言は含みません。このモードでは通常の画面表示・操作プロンプトは標準エラーへ出るため、標準出力を外部スクリプトへパイプできます。
+`ptk join` または `ptk create` に `--events-jsonl` を付けると、受信チャットと既知参加者の入退室を標準出力へJSON Linesで出力します。チャット行の形式 `{"type":"chat","from":"💻表示名","text":"コメント本文"}` は従来どおり変更しません。入室行は `{"type":"presence","action":"join","name":"🦊表示名"}`、退出行は `{"type":"presence","action":"leave","name":"🦊表示名","clean":true}` の形式です（`clean:false` は予期しない切断）。プロフィールを受け取って表示対象になった参加者のみを対象とし、名乗る前に切断した相手は含みません。システム通知や自分が送った発言はJSONLに含みません。このモードでは通常の画面表示・操作プロンプトは標準エラーへ出るため、標準出力を外部スクリプトへパイプできます。`/tag` は話題メタデータの変更機能で、入退室イベントの機械判読シグナルではありません。
 
 `--tts <コマンド>` を付けると、受信したチャットの **本文だけ** を外部コマンドの標準入力へ渡して読み上げます。たとえば Linux では `--tts 'espeak-ng -v ja'`、macOS では `--tts 'say -v Kyoko'` のように指定します。`ptk join` / `ptk create` のほか、ロビーTUIを起動する `ptk --tts 'say -v Kyoko'` でも使えます。TTSエンジンや辞書は含まれず、未指定時は読み上げません。
 
@@ -183,3 +183,30 @@ PR を出すと、GitHub Actions で Mac と Linux、Node 20・22・24 のテス
 
 元リポジトリに準拠し、本プロジェクトも MITライセンス となります。
 詳細は LICENSE ファイルをご確認ください。
+
+### BOT専用sink音声（runner連携）
+
+`ptk join` / `ptk create` は、専用ランナーが生成した `BotSink_<英数字>.monitor` を `--bot-audio-source` で受け取る構成に対応します。許可される値はこの形式だけで、パス・任意のPulseAudioソース名・既定入力へのフォールバックは受け付けません。BOT参加時は専用入力を使って発話状態を明示的にオンにします。`/mic` の手動切替を使う場合も同じ専用入力を維持します。
+
+配信部屋の聞き役は送音できないため、BOT音声ソースを指定しても安全に拒否されます。専用ランナーの稼働や部屋接続を行わず、対応契約だけを確認するには次を実行できます。
+
+```bash
+node lib/bot-audio.mjs --check
+# potalk-bot-audio-v1
+```
+
+`--bot-audio-pipewire` を併用する場合は、ランナーが用意した専用ソケットの絶対パスを `POTALK_BOT_PW_REMOTE`、対象nodeの正の10進 `object.serial` を `POTALK_BOT_PW_SERIAL` で指定します。入力は `pw-cat` でそのserialへ固定し、停止・障害時に既定マイクへフォールバックしません。`node ptk.mjs --check-pipewire` は接続せず `potalk-bot-audio-pipewire-v1` を返す契約確認専用経路です。人格・台詞・WAV・BOT運用ランナーは本変更に含みません。
+
+#### この変更のオフライン回帰確認
+
+```bash
+node --test \
+  test/bot-audio.test.mjs test/bot-audio-integration.test.mjs \
+  test/pipewire-bot-audio.test.mjs test/mic-input.test.mjs \
+  test/presence-events.test.mjs test/events.test.mjs \
+  test/local-mute.test.mjs test/room.test.mjs
+```
+
+音声・部屋処理はモックへ差し替え、PCMはメモリ内の合成値だけを使います。このコマンドには `--mic-test` を呼ぶCLIテストファイルを含めません。`test/pipewire-mic-driver.mjs` は実録音用の手動検証補助であり、このオフライン検査には含めず、実行していません。ここでの合格は実デバイス・実部屋・実音声到達・長時間運転の確認ではありません。
+
+JSONL consumerは `type` を見て `chat` と `presence` を分けて処理してください。チャット行の形は維持しますが、ストリーム全体はチャットだけではなくなります。入退室の表示名をログへ保存する場合は、利用者情報の扱いにも注意してください。
