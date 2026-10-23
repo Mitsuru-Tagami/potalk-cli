@@ -7,6 +7,7 @@
     "start": "node ptk.mjs",
     "list": "node ptk.mjs list",
     "test": "node --test test/*.test.mjs && npm run test:ollama-dry-run",
+    "test:bot-audio": "node --test test/bot-audio*.test.mjs",
     "test:ollama-dry-run": "python3 -m unittest discover -s test -p 'test_ollama_dry_run.py'",
     "test:tts-router": "python3 -m unittest discover -s test -p 'test_*.py'"
   },
