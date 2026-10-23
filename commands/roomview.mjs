@@ -162,7 +162,7 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
           : ' 🎙 マイク入力 OFF（t でオン）');
       }
       for (const m of ms) {
-        const mark = m.muted ? '🔇' : m.talking ? '🔊' : '';
+        const mark = (m.muted ? '🔇' : m.talking ? '🔊' : '') + (m.loud ? '🔉' : '');
         const role = m.owner ? '📣' : m.speaker ? '🎙' : '';   // 配信部屋：配信者・話してよい人
         lines.push('   ' + padWidth(tuiText(m.label), 30) + ' ' + mark + role);
       }
