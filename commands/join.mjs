@@ -9,6 +9,7 @@ import { ROOM_MAX } from '../lib/config.mjs';
 import { completeRoomCommand } from '../lib/commands.mjs';
 import { serializeReceivedChat } from '../lib/events.mjs';
 import { editCardInteractive } from './card-edit.mjs';
+import { enableBotAudio } from '../lib/bot-audio.mjs';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 const makeSay = output => s => output.write(`${hhmm()}  ${s}\n`);
@@ -53,15 +54,15 @@ async function pickFromLobby(lobby, rl, query = '', output = process.stdout) {
   return r ? { roomId: r.id, name: r.rn } : undefined;   // undefined＝番号が外れた（null＝見つからなかった）
 }
 
-export async function runJoin({ ref, create, profile, cardManager = null, sound = true, eventsJsonl = false, tts = null }) {
+export async function runJoin({ ref, create, profile, cardManager = null, sound = true, eventsJsonl = false, tts = null, pulseSource = null, enterRoomImpl = enterRoom, openLobbyImpl = openLobby, createReadlineImpl = readline.createInterface }) {
   process.on('uncaughtException', e => { if (process.env.PTK_DEBUG) console.error('[error]', e?.message || e); });
   // trystero はリレーの不調（rate limit など）を console.warn に出す。よくあることなので普段は隠す
   const warn = console.warn;
   console.warn = (...a) => { if (process.env.PTK_DEBUG || !String(a[0]).startsWith('Trystero:')) warn(...a); };
   const humanOutput = eventsJsonl ? process.stderr : process.stdout;
   const say = makeSay(humanOutput);
-  const rl = readline.createInterface({ input: process.stdin, output: humanOutput, completer: completeRoomCommand });
-  const lobby = openLobby();
+  const rl = createReadlineImpl({ input: process.stdin, output: humanOutput, completer: completeRoomCommand });
+  const lobby = openLobbyImpl();
 
   let target;
   if (create) target = { roomId: newRoomId(), name: capText(create, ROOM_MAX) };
@@ -70,13 +71,14 @@ export async function runJoin({ ref, create, profile, cardManager = null, sound 
   // 見つからなかった理由は pickFromLobby が出している。番号の入力で外れたときだけここで言う
   if (!target?.roomId) { if (target !== null) console.error('部屋が決まりませんでした。'); await lobby.leave(); process.exit(1); }
 
-  const session = enterRoom({
-    target, profile, cardManager, lobby, sound, tts,
+  const session = enterRoomImpl({
+    target, profile, cardManager, lobby, sound, tts, pulseSource,
     onText: say,
     onReceivedChat: eventsJsonl ? event => process.stdout.write(`${serializeReceivedChat(event)}\n`) : undefined,
     onFull: () => quit(1),
     onCardEdit: editCard
   });
+  if (pulseSource) enableBotAudio(session, pulseSource);
   say('（文字を打って Enter でひとことを送る。Tab: コマンド補完　/mic マイク　/tag 話題　/list 部屋一覧　/who 参加者　/card 名刺　/hbk・/unhbk ローカルミュート　/mute 音　/dice [面数] ダイス　/cp URLコピー　/q 退出）');
 
   let quitting = false;

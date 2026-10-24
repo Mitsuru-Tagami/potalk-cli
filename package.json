@@ -6,8 +6,11 @@
   "scripts": {
     "start": "node ptk.mjs",
     "list": "node ptk.mjs list",
-    "test": "node --test",
-    "test:tts-router": "python3 -m unittest discover -s test -p 'test_*.py'"
+    "test": "node --test test/*.test.mjs",
+    "test:tts-router": "python3 -m unittest discover -s test -p 'test_*.py'",
+    "test:bot-audio": "node --test test/bot-*.test.mjs",
+    "build:bot-audio": "node scripts/build-bot-audio.mjs",
+    "test:bot-audio-real": "node scripts/offline-audio-check.mjs"
   },
   "keywords": [],
   "author": "",

@@ -183,3 +183,26 @@ PR を出すと、GitHub Actions で Mac と Linux、Node 20・22・24 のテス
 
 元リポジトリに準拠し、本プロジェクトも MITライセンス となります。
 詳細は LICENSE ファイルをご確認ください。
+
+## BOT専用monitor入力（Linux・8eb2d5b基準の追加）
+
+`join` / `create` に `--bot-audio-source BotSink_<英数字>.monitor` を指定すると、入室直後に専用入力の送音を明示オンにします。通常の手動 `/mic` は不要です。手動でオフ／オンしても同じmonitorを使い、配信部屋の聞き役では録音を開始しません。指定しなければ通常マイクの従来動作を維持します。
+
+**この版のBOT録音はPulseAudioのみ対応です。** PipeWireでの同等の安全性は未確認で、移動禁止指定を取り除くサーバー設定もあるため、`pactl info` が示すServer Nameが `pulseaudio` 以外なら録音前に停止します。サーバーを自動変更せず、物理入力へ迂回もしません。
+
+L570で確認されたALSA-only SoXに合わせ、録音子プロセスだけに `AUDIODRIVER=alsa AUDIODEV=pulse PULSE_SOURCE=<monitor>` を指定します。さらに子専用の一時ALSA設定で `pcm.pulse` の `device` を固定し、ALSAのfallback設定や利用者の `.asoundrc` を引き継ぎません。既定デバイス、ユーザー設定、WAVは変更しません。未対応の `sox -t pulseaudio` は使いません。
+
+ALSA pulseプラグインは通常streamの移動を許すため、monitor消失後にサーバーが既定入力へ移す場合があります。これを防ぐLinux専用の小さな補助ライブラリを録音子だけにロードし、libpulseの `PA_STREAM_DONT_MOVE` を付与します。初回はCコンパイラ（`cc`）で以下を実行してください。libpulse開発ヘッダの追加は不要です。CLIの配置パスに空白・コロンは使えません。
+
+```bash
+npm run build:bot-audio
+npm test
+npm run test:tts-router
+# 部屋接続・既存音声サーバー・物理マイクを使わない追加検証。
+# pulseaudio / pactl / pacat / ALSA-only sox / ALSA pulse plugin が必要。
+npm run test:bot-audio-real
+```
+
+補助コード未ビルド・ハッシュ不一致・録音起動失敗・確認パイプ不正・5秒以内に移動禁止設定を確認できない場合は送音せず停止します。確認後に5秒間PCMが届かない場合も停止します（無音のPCMは正常な受信です）。失敗時やオフ時は未送信PCMも破棄し、別入力への再試行は行いません。monitor消失時も送音をミュートします。通常の録音には補助コードをロードしません。
+
+`node lib/bot-audio.mjs --check` は、部屋に接続せずランナー互換の契約値 `potalk-bot-audio-v1` を出します（ビルド完了や実録音成功を保証する検査ではありません）。既存BOT側のmpv既定音量60と合成済み8WAVはこのCLI更新の対象外で、そのまま保持します。今回の検証は隔離環境であり、L570や実部屋での送受信成功は未確認です。
