@@ -10,6 +10,19 @@ test('parseRoomRef：招待リンクから部屋 ID と名前を取り出す', (
   assert.deepEqual(parseRoomRef('abcdEFGH1234_-xy'), { roomId: 'abcdEFGH1234_-xy', name: '' });
 });
 
+test('parseRoomRef：移転前の部屋名リンクを新しい ID に解決し、指定名は保持する', () => {
+  const welcome = encodeURIComponent('ぽっと通話にようこそ');
+  const echo = encodeURIComponent('やまびこ部屋⛰️（5秒で返信）');
+  assert.deepEqual(parseRoomRef(`https://potalk.app/#room=${welcome}&name=${encodeURIComponent('おしゃべり部屋')}`),
+    { roomId: 'X7fZgwbqs8CqUF8T', name: 'おしゃべり部屋' });
+  assert.deepEqual(parseRoomRef(`room=${echo}&name=${encodeURIComponent('やまびこ')}`),
+    { roomId: 'U7PU1_IarAwtqnBf', name: 'やまびこ' });
+  assert.deepEqual(parseRoomRef('https://potalk.app/#room=other-old-room&name=そのまま'),
+    { roomId: 'other-old-room', name: 'そのまま' });
+  assert.deepEqual(parseRoomRef('https://potalk.app/#room=toString'),
+    { roomId: 'toString', name: '' });
+});
+
 test('isRoomRef：リンク・16 文字のハッシュ・配信部屋は ID、それ以外は名前の一部', () => {
   assert.ok(isRoomRef('https://potalk.app/#room=abc&name=x'));
   assert.ok(isRoomRef('abcdEFGH1234_-xy'));
