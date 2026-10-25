@@ -54,6 +54,48 @@ test('通話中マイクはSoXから届いた区間RMSとピークを読み出�
   assert.equal(mic.running, false);
 });
 
+
+test('BOT音声は指定monitorをSoX PulseAudio入力へ渡し、recへfallbackしない', () => {
+  const child = fakeChild();
+  const calls = [];
+  const mic = openMic({ pulseSource: 'BotSink_runner.monitor', spawnImpl: (command, args, options) => {
+    calls.push({ command, args, options });
+    return child;
+  } });
+  mic.start();
+  assert.equal(calls[0].command, 'sox');
+  assert.deepEqual(calls[0].args, ['-t', 'pulseaudio', 'BotSink_runner.monitor', '-t', 'raw', '-r', '48000', '-e', 'signed-integer', '-b', '16', '-c', '1', '-']);
+  mic.stop();
+});
+
+test('録音error後もキューとメーターを捨て、recなしのstopで再度掃除する', () => {
+  const child = fakeChild();
+  const mic = openMic({ spawnImpl: () => child, onError: () => {} });
+  mic.start();
+  child.stdout.write(pcm16([1200, -800]));
+  assert.equal(mic.readMeter().samples, 2);
+  child.emit('error', new Error('input failed'));
+  assert.equal(mic.running, false);
+  assert.equal(mic.take(1), null);
+  assert.deepEqual(mic.readMeter(), { rms: 0, peak: 0, samples: 0 });
+  mic.stop();
+  assert.equal(mic.take(1), null);
+  assert.deepEqual(mic.readMeter(), { rms: 0, peak: 0, samples: 0 });
+});
+
+test('stopはkillが同期exitを発火しても終了エラーを報告しない', () => {
+  const child = fakeChild();
+  child.kill = () => child.emit('exit', 0);
+  const errors = [];
+  const mic = openMic({ spawnImpl: () => child, onError: error => errors.push(error) });
+  mic.start();
+  child.stdout.write(pcm16([900]));
+  mic.stop();
+  assert.equal(mic.running, false);
+  assert.deepEqual(errors, []);
+  assert.equal(mic.take(1), null);
+});
+
 test('マイク診断はSoXのrecからPCMをRAM上で測り、設定時間後に録音を止める', async () => {
   const child = fakeChild();
   const calls = [];

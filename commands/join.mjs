@@ -7,8 +7,9 @@ import { enterRoom } from '../lib/session.mjs';
 import { capText } from '../lib/text.mjs';
 import { ROOM_MAX } from '../lib/config.mjs';
 import { completeRoomCommand } from '../lib/commands.mjs';
-import { serializeReceivedChat } from '../lib/events.mjs';
+import { serializePresence, serializeReceivedChat } from '../lib/events.mjs';
 import { editCardInteractive } from './card-edit.mjs';
+import { enableBotAudio } from '../lib/bot-audio.mjs';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 const makeSay = output => s => output.write(`${hhmm()}  ${s}\n`);
@@ -53,15 +54,20 @@ async function pickFromLobby(lobby, rl, query = '', output = process.stdout) {
   return r ? { roomId: r.id, name: r.rn } : undefined;   // undefined＝番号が外れた（null＝見つからなかった）
 }
 
-export async function runJoin({ ref, create, profile, cardManager = null, sound = true, eventsJsonl = false, tts = null }) {
-  process.on('uncaughtException', e => { if (process.env.PTK_DEBUG) console.error('[error]', e?.message || e); });
+export async function runJoin({ ref, create, profile, cardManager = null, sound = true, eventsJsonl = false, tts = null, pulseSource = null, pipewire = null, enterRoomImpl = enterRoom, openLobbyImpl = openLobby, createReadlineImpl = readline.createInterface }) {
+  let quitting = false;
+  let session = null;
+  process.on('uncaughtException', e => {
+    if (process.env.PTK_DEBUG) console.error('[error]', e?.message || e);
+    if (pipewire) void quit(1);
+  });
   // trystero はリレーの不調（rate limit など）を console.warn に出す。よくあることなので普段は隠す
   const warn = console.warn;
   console.warn = (...a) => { if (process.env.PTK_DEBUG || !String(a[0]).startsWith('Trystero:')) warn(...a); };
   const humanOutput = eventsJsonl ? process.stderr : process.stdout;
   const say = makeSay(humanOutput);
-  const rl = readline.createInterface({ input: process.stdin, output: humanOutput, completer: completeRoomCommand });
-  const lobby = openLobby();
+  const rl = createReadlineImpl({ input: process.stdin, output: humanOutput, completer: completeRoomCommand });
+  const lobby = openLobbyImpl();
 
   let target;
   if (create) target = { roomId: newRoomId(), name: capText(create, ROOM_MAX) };
@@ -70,16 +76,19 @@ export async function runJoin({ ref, create, profile, cardManager = null, sound 
   // 見つからなかった理由は pickFromLobby が出している。番号の入力で外れたときだけここで言う
   if (!target?.roomId) { if (target !== null) console.error('部屋が決まりませんでした。'); await lobby.leave(); process.exit(1); }
 
-  const session = enterRoom({
+  session = enterRoomImpl({
     target, profile, cardManager, lobby, sound, tts,
+    pulseSource, pipewire,
     onText: say,
     onReceivedChat: eventsJsonl ? event => process.stdout.write(`${serializeReceivedChat(event)}\n`) : undefined,
+    onPresence: eventsJsonl ? event => process.stdout.write(`${serializePresence(event)}\n`) : undefined,
     onFull: () => quit(1),
+    onFatal: () => quit(1),
     onCardEdit: editCard
   });
+  if (pulseSource) enableBotAudio(session, pulseSource);
   say('（文字を打って Enter でひとことを送る。Tab: コマンド補完　/mic マイク　/tag 話題　/list 部屋一覧　/who 参加者　/card 名刺　/hbk・/unhbk ローカルミュート　/mute 音　/dice [面数] ダイス　/cp URLコピー　/q 退出）');
 
-  let quitting = false;
   let cardEditing = false;
   async function editCard() {
     if (cardEditing) return;
@@ -95,7 +104,7 @@ export async function runJoin({ ref, create, profile, cardManager = null, sound 
     if (quitting) return; quitting = true;
     setTimeout(() => process.exit(code), 4000).unref();   // 何かで詰まっても必ず終わる
     say('退出します…');
-    await session.leave();
+    if (session?.leave) await session.leave();
     await lobby.leave();
     process.exit(code);
   }
