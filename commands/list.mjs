@@ -1,12 +1,14 @@
 // ptk list / ptk 一覧 ── ロビーを一定時間眺めて、通話中の部屋を標準出力に書き出す
 // （パイプや grep に流せるよう、TUI を使わない）
 import { openLobby } from '../lib/lobby.mjs';
+import { primeTurnRtcConfig } from '../lib/turn.mjs';
 
 export async function runList({ seconds = 15 } = {}) {
   // Nostr リレーの 301 などで落ちないようにする
   process.on('uncaughtException', () => {});
 
   console.error(`🛰 ロビーに接続中…（${seconds}秒待って一覧を出します）`);
+  await primeTurnRtcConfig();   // TURN の資格情報を先に取る（未設定なら何も起きない）
   const lobby = openLobby();
   await new Promise(r => setTimeout(r, seconds * 1000));
 

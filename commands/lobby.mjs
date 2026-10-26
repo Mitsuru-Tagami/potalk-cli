@@ -11,6 +11,7 @@
 // ptk（引数なし）/ ptk lobby ── ロビーを TUI で表示する
 import blessed from 'blessed';
 import { openLobby, matchRoom } from '../lib/lobby.mjs';
+import { primeTurnRtcConfig, iceStatusLabel } from '../lib/turn.mjs';
 import { padWidth, tuiText } from '../lib/text.mjs';
 import { showRoom } from './roomview.mjs';
 import { fixBlessedWidths } from '../lib/tui.mjs';
@@ -133,7 +134,7 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
     const { open, total } = lobby.relayStatus();
     // 絞り込み中と、部屋から戻ったときのひとことは、切れないよう行の頭に出す
     const head = [filter && tuiText(`🔍 「${filter}」（Esc で解除）`), note].filter(Boolean).map(s => s + '  |  ').join('');
-    statusBar.setContent(`  ${head}⚡ [Nostr] ${open}/${total} relays  |  👀 ロビーの他の閲覧者 ${lobby.viewers()}  |  [ICE] STUN only`);
+    statusBar.setContent(`  ${head}⚡ [Nostr] ${open}/${total} relays  |  👀 ロビーの他の閲覧者 ${lobby.viewers()}  |  [ICE] ${iceStatusLabel()}`);
     screen.render();
   }
 
@@ -142,6 +143,7 @@ export async function runLobby({ profile, cardManager = null, notice = '', sound
    */
   async function start() {
     if (lobby) { const old = lobby; lobby = null; await old.leave(); }
+    await primeTurnRtcConfig();   // TURN の資格情報を先に取る（未設定なら何も起きない）
     lobby = openLobby({ onChange: render, onPeer: render });
     render();
   }

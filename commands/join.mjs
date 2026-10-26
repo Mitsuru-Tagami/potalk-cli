@@ -10,6 +10,7 @@ import { completeRoomCommand } from '../lib/commands.mjs';
 import { serializePresence, serializeReceivedChat } from '../lib/events.mjs';
 import { editCardInteractive } from './card-edit.mjs';
 import { enableBotAudio } from '../lib/bot-audio.mjs';
+import { primeTurnRtcConfig } from '../lib/turn.mjs';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 const makeSay = output => s => output.write(`${hhmm()}  ${s}\n`);
@@ -54,7 +55,7 @@ async function pickFromLobby(lobby, rl, query = '', output = process.stdout) {
   return r ? { roomId: r.id, name: r.rn } : undefined;   // undefined＝番号が外れた（null＝見つからなかった）
 }
 
-export async function runJoin({ ref, create, profile, cardManager = null, sound = true, eventsJsonl = false, tts = null, pulseSource = null, pipewire = null, enterRoomImpl = enterRoom, openLobbyImpl = openLobby, createReadlineImpl = readline.createInterface }) {
+export async function runJoin({ ref, create, profile, cardManager = null, sound = true, eventsJsonl = false, tts = null, pulseSource = null, pipewire = null, enterRoomImpl = enterRoom, openLobbyImpl = openLobby, createReadlineImpl = readline.createInterface, primeTurnImpl = primeTurnRtcConfig }) {
   let quitting = false;
   let session = null;
   process.on('uncaughtException', e => {
@@ -67,6 +68,7 @@ export async function runJoin({ ref, create, profile, cardManager = null, sound 
   const humanOutput = eventsJsonl ? process.stderr : process.stdout;
   const say = makeSay(humanOutput);
   const rl = createReadlineImpl({ input: process.stdin, output: humanOutput, completer: completeRoomCommand });
+  await primeTurnImpl();   // TURN の資格情報を先に取り、最初の接続から使う（未設定なら何も起きない）
   const lobby = openLobbyImpl();
 
   let target;

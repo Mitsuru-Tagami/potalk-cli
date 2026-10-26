@@ -135,9 +135,20 @@ po-talk のブラウザ版と同じロビー・同じ Nostr リレーに乗り�
 配信部屋では聞き役として入り、配信者と、配信者が許可した人の声が聞こえます（話すことはできません）。
 
 > [!WARNING]
-> **CLI を使うと、あなたの IP アドレスが相手から見えます。**
-> po-talk のブラウザ版は TURN 中継を通すので相手に IP が見えませんが、CLI はまだ TURN を使えず、相手と直接つなぎます（STUN のみ）。
+> **CLI を使うと、あなたの IP アドレスが相手から見えます（自前 TURN を設定した場合を除く）。**
+> po-talk のブラウザ版は TURN 中継を通すので相手に IP が見えませんが、CLI は既定では TURN を使わず、相手と直接つなぎます（STUN のみ）。
 > 同じ部屋の人だけでなく、ロビーを開いているブラウザからも見えます。気になる場合は使わないでください（[#2](https://github.com/Mitsuru-Tagami/potalk-cli/issues/2)）。
+
+### TURN（任意・自前 Worker を設定した場合のみ）
+
+自前の Cloudflare Worker（[`worker/pot-turn-cli.js`](worker/pot-turn-cli.js)）を用意し、環境変数を設定すると、CLI も TURN 中継（relay のみ）で接続して、相手に IP が見えなくなります。
+
+```bash
+export POTALK_TURN_WORKER_URL='https://<あなたの Worker の URL>'
+export POTALK_TURN_TOKEN='<その端末用のトークン>'
+```
+
+未設定なら従来どおり STUN のみです。資格情報が取得できなかった場合も STUN 直結にフォールバックし、その旨を画面に表示します（IP が見える状態であることを隠しません）。Worker のデプロイ方法とトークンの発行・失効は `worker/pot-turn-cli.js` 冒頭の説明を参照してください。
 
 ### しくみのメモ
 
