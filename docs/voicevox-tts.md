@@ -166,4 +166,4 @@ ptk --tts "$HOME/bin/ptk-voicevox.py"
 ## 参考
 
 - [VOICEVOX Engine APIドキュメント](https://voicevox.github.io/voicevox_engine/api/)（`GET /speakers`、`POST /audio_query`、`POST /synthesis`）
-- [`potalk-cli` READMEのTTSオプション](../README.md#使い方)
+- [`potalk-cli` リファレンスのTTS仕様](reference.md#--tts-の仕様)
