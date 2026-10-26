@@ -117,4 +117,4 @@ printf 'IDを直接使うテストです。' \
 
 - [VOICEVOX Engineセットアップ](voicevox-tts.md)
 - [COEIROINK v2セットアップ](coeiroink-tts.md)
-- [READMEのTTSオプション](../README.md#使い方)
+- [リファレンスのTTS仕様](reference.md#--tts-の仕様)

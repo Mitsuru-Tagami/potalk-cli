@@ -127,4 +127,4 @@ VOICEVOX Engineの例で使う `POST /audio_query` → `POST /synthesis` とい�
 - [COEIROINK公式: Linux版の解凍と起動方法](https://coeiroink.com/help/001)
 - [COEIROINK公式: API仕様の確認方法](https://coeiroink.com/help/002)
 - [COEIROINK公式: APIリクエスト例](https://coeiroink.com/help/031)
-- [`potalk-cli` READMEのTTSオプション](../README.md#使い方)
+- [`potalk-cli` リファレンスのTTS仕様](reference.md#--tts-の仕様)
