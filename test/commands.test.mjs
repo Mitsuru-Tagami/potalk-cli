@@ -1,10 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { completeRoomCommand, commonCommandPrefix, roomCommandMatches } from '../lib/commands.mjs';
+import { completeRoomCommand, commonCommandPrefix, roomCommandMatches, setPackCommands } from '../lib/commands.mjs';
 import { copyRoomUrl } from '../lib/clipboard.mjs';
 
-test('roomCommandMatches：スラッシュコマンドを接頭辞で補完し、/dice /waka /haiku /seiza /uranai /omikuji /card /cp /copyも含む', () => {
+test('roomCommandMatches：内蔵コマンドを接頭辞で補完し、パックのコマンドは有効化された分だけ加わる', () => {
+  setPackCommands([]);
   assert.deepEqual(roomCommandMatches('/c'), ['/card', '/cp', '/copy']);
+  assert.deepEqual(roomCommandMatches('/d'), []);
+  assert.deepEqual(roomCommandMatches('/wa'), []);
+  assert.deepEqual(roomCommandMatches('/co'), ['/copy']);
+  setPackCommands(['/dice', '/waka', '/haiku', '/seiza', '/uranai', '/omikuji']);
   assert.deepEqual(roomCommandMatches('/d'), ['/dice']);
   assert.deepEqual(roomCommandMatches('/wa'), ['/waka']);
   assert.deepEqual(roomCommandMatches('/hai'), ['/haiku']);
@@ -12,11 +17,11 @@ test('roomCommandMatches：スラッシュコマンドを接頭辞で補完し�
   assert.deepEqual(roomCommandMatches('/uran'), ['/uranai']);
   assert.deepEqual(roomCommandMatches('/omi'), ['/omikuji']);
   assert.deepEqual(completeRoomCommand('/dice'), [['/dice'], '/dice']);
-  assert.deepEqual(roomCommandMatches('/co'), ['/copy']);
   assert.deepEqual(roomCommandMatches('/di'), ['/dice']);
   assert.deepEqual(roomCommandMatches('/hb'), ['/hbk']);
   assert.deepEqual(roomCommandMatches('/unh'), ['/unhbk']);
   assert.ok(roomCommandMatches('/').includes('/help'));
+  setPackCommands([]);
 });
 
 test('roomCommandMatches：コマンド以外と引数入力中は補完しない', () => {

@@ -16,6 +16,41 @@ if (process.argv[2] === '--check-pipewire') {
   process.exit(0);
 }
 
+// コマンドパックの検証（部屋に入らず、形式ミスやプールの欠けを報告する）。引数でフォルダも指定できる
+if (process.argv[2] === '--check-commands') {
+  const { loadPackFromDir } = await import('./lib/command-packs.mjs');
+  const { existsSync, readdirSync } = await import('node:fs');
+  const path = (await import('node:path')).default;
+  const target = process.argv[3];
+  const dirs = [];
+  if (target) {
+    dirs.push(target);
+  } else {
+    const { defaultBundledPacksDir, defaultUserPacksDir } = await import('./lib/command-pack-store.mjs');
+    for (const base of [defaultBundledPacksDir(), defaultUserPacksDir()]) {
+      if (existsSync(base)) for (const e of readdirSync(base, { withFileTypes: true })) if (e.isDirectory()) dirs.push(path.join(base, e.name));
+    }
+  }
+  let failed = 0;
+  for (const dir of dirs.sort()) {
+    const r = loadPackFromDir(dir);
+    if (r.ok) console.log(`OK ${r.pack.name}（${r.pack.title}／${r.pack.author}）: ${r.pack.manifest.commands.map(c => c.name).join(' ')}`);
+    else { failed++; console.log(`NG ${dir}: ${r.errors.join('／')}`); }
+  }
+  if (!dirs.length) console.log('コマンドパックが見つかりませんでした');
+  process.exit(failed ? 1 : 0);
+}
+
+// 未有効化のコマンドパックを有効化する
+if (process.argv[2] === '--install-commands') {
+  const { activateInactivePacks } = await import('./lib/command-pack-store.mjs');
+  const r = activateInactivePacks();
+  for (const e of r.errors) console.error(e);
+  if (r.lines.length) for (const line of r.lines) console.log(line);
+  else console.log('有効化待ちのコマンドパックはありません（標準コマンドは最初から有効です）');
+  process.exit(0);
+}
+
 
 const HELP = `
 🫖  POT-TALK CLI (ptk) - ハッカーのためのP2P音声通話
@@ -42,15 +77,19 @@ const HELP = `
   --tts <コマンド>    受信コメント本文を外部TTSコマンドへ非同期で渡す（例: 'espeak-ng -v ja'）
   --bot-audio-source <BotSink_X.monitor>  BOT入力のPulseAudio monitor契約名
   --bot-audio-pipewire  BOT入力を指定serialのPipeWire nodeから取得（環境変数が必要）
+  --install-commands  見つけた拡張コマンドパックを有効化する（標準コマンドは最初から有効）
+  --check-commands [フォルダ]  コマンドパックの形式を検証する（部屋に入らない）
 
 【 通話中のチャットコマンド (部屋内で使用) 】
   /help         コマンド一覧とヘルプを表示する
   /dice [面数]  ダイスを振る（省略時は6面。出目を部屋に送信）
-  /waka         古今和歌集から一首を選んで部屋に送信する
-  /haiku        正岡子規の俳句から一句を選んで部屋に送信する
-  /seiza [星座] 88星座から解説を選んで部屋に送信する
-  /uranai [星座] 12星座占いのひとことを部屋に送信する
   /omikuji      運勢と今日の小さな提案を部屋に送信する
+  /waka         古今和歌集から一首を選んで部屋に送信する（拡張コマンドパック）
+  /haiku        正岡子規の俳句から一句を選んで部屋に送信する（拡張コマンドパック）
+  /seiza [星座] 88星座から解説を選んで部屋に送信する（拡張コマンドパック）
+  /uranai [星座] 12星座占いのひとことを部屋に送信する（拡張コマンドパック）
+  /waza         キャラ名＋必殺技をランダムで部屋に送信する（拡張コマンドパック）
+                ※拡張コマンドパックは ptk --install-commands で有効化すると使えます
   /card         自分の名刺（ひとこと・SNS・お礼窓口）を対話形式で編集する
   /card <番号>  相手の名刺を要求する（SNS外部照会なし）
   /card <番号> --verify  名刺鍵応答後、X・GitHub・Nostrの証拠を照合する
@@ -66,6 +105,14 @@ const HELP = `
 
 // `ptk --name 名前` のようにオプションだけなら、コマンドは lobby（--help / -h はそのまま help へ）
 const { cmd, rest } = parseCliArgs(process.argv.slice(2));
+
+// 部屋に入る流れでは、コマンドパックの導入ログ・未有効化の警告・読み込みエラーを先に知らせる
+if (['lobby', 'ロビー', 'join', '参加', '参加する', 'create', '作成', '部屋をつくる'].includes(cmd)) {
+  const { getSharedCommandPacks } = await import('./lib/command-pack-store.mjs');
+  const packs = getSharedCommandPacks();
+  for (const e of packs.errors) console.error(e);
+  for (const line of packs.startupLines) console.error(line);
+}
 // BOT指定はprofile・mic-test・接続などの副作用より前に検証する。
 const pulseSource = parseBotAudioSource(rest, { command: cmd });
 const pipewire = parseBotAudioPipewire(rest, { command: cmd });

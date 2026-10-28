@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { enterRoom } from '../lib/session.mjs';
+import { allBundledPackOptions } from './helpers/packs.mjs';
 
 function fakeSessionRoom({ sendOk = true } = {}) {
   const sent = [];
@@ -26,6 +27,7 @@ function makeSession({ room = fakeSessionRoom(), messages = [], received = [], s
     onText: message => messages.push(message),
     onReceivedChat: event => received.push(event),
     openRoomImpl: () => room,
+    ...allBundledPackOptions,
     createTtsImpl: () => ({ speak: text => { spoken.push(text); return true; }, close() {} })
   });
   return { session, room, messages, received, spoken };

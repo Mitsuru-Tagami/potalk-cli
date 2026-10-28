@@ -1,0 +1,27 @@
+{
+  "contract": "potalk-command-v1",
+  "author": "potalk-cli",
+  "version": "1.0.0",
+  "name": "seiza",
+  "title": "88星座",
+  "commands": [
+    {
+      "name": "/seiza",
+      "usage": "/seiza [星座]",
+      "description": "88星座から解説を選んで部屋に送信する",
+      "engine": "pool",
+      "pool": "data/constellations.json",
+      "format": "{name}：{description}",
+      "key": {
+        "field": "name",
+        "aliasesField": "aliases",
+        "extraFields": [
+          "latin",
+          "abbr"
+        ],
+        "stripSuffix": "座"
+      },
+      "errorUsage": "使用方法：/seiza [88星座名]（例：/seiza オリオン座）。「座」は省略できます。"
+    }
+  ]
+}

@@ -21,6 +21,7 @@ import blessed from 'blessed';
 import { enterRoom } from '../lib/session.mjs';
 import { padWidth, tuiText } from '../lib/text.mjs';
 import { roomCommandMatches, commonCommandPrefix } from '../lib/commands.mjs';
+import { getSharedCommandPacks } from '../lib/command-pack-store.mjs';
 import { editCardInteractive } from './card-edit.mjs';
 import { BOSS_SCREEN_VARIANTS, bindBossScreenShortcut, startBossScreen } from './boss-screen.mjs';
 import { formatMicMeter } from '../lib/mic-level.mjs';
@@ -191,8 +192,10 @@ export function showRoom(screen, { target, profile, cardManager = null, lobby, s
       resolve(note);
     }
 
+    const commandPacks = getSharedCommandPacks();
     session = enterRoomImpl({
       target, profile, cardManager, lobby, sound, tts,
+      packDispatch: commandPacks.dispatch, packHelp: commandPacks.helpLines,
       onText: say,
       onChange: draw,
       onFull: cap => close(`満員でした（最大 ${cap}人）`),

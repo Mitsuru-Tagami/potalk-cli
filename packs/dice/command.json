@@ -1,0 +1,15 @@
+{
+  "contract": "potalk-command-v1",
+  "author": "potalk-cli",
+  "version": "1.0.0",
+  "name": "dice",
+  "title": "ダイス",
+  "commands": [
+    {
+      "name": "/dice",
+      "usage": "/dice [面数]",
+      "description": "ダイスを振る（省略時は6面。出目を部屋に送信）",
+      "engine": "dice"
+    }
+  ]
+}

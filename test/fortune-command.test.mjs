@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { enterRoom } from '../lib/session.mjs';
+import { allBundledPackOptions } from './helpers/packs.mjs';
 import { CHAT_MAX } from '../lib/config.mjs';
 
 function fakeSessionRoom({ sendOk = true } = {}) {
@@ -25,6 +26,7 @@ function makeSession({ room = fakeSessionRoom(), messages = [], received = [], s
     onText: message => messages.push(message),
     onReceivedChat: event => received.push(event),
     openRoomImpl: () => room,
+    ...allBundledPackOptions,
     createTtsImpl: () => ({ speak: text => { spoken.push(text); return true; }, close() {} })
   });
   return { session, room, messages, received, spoken };

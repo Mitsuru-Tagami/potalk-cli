@@ -1,0 +1,22 @@
+{
+  "contract": "potalk-command-v1",
+  "author": "potalk-cli",
+  "version": "1.0.0",
+  "name": "uranai",
+  "title": "12星座占い",
+  "commands": [
+    {
+      "name": "/uranai",
+      "usage": "/uranai [星座]",
+      "description": "12星座占いのひとことを部屋に送信する",
+      "engine": "pool",
+      "pool": "data/signs.json",
+      "format": "{sign}の占い：{item}",
+      "key": {
+        "field": "sign",
+        "stripSuffix": "座"
+      },
+      "errorUsage": "使用方法：/uranai [12星座]（例：/uranai 牡羊座）。指定できる星座：牡羊座・牡牛座・双子座・蟹座・獅子座・乙女座・天秤座・蠍座・射手座・山羊座・水瓶座・魚座"
+    }
+  ]
+}

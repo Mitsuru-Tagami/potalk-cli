@@ -1,0 +1,24 @@
+{
+  "contract": "potalk-command-v1",
+  "author": "potalk-cli",
+  "version": "1.0.0",
+  "name": "waza",
+  "title": "必殺技",
+  "commands": [
+    {
+      "name": "/waza",
+      "usage": "/waza",
+      "description": "キャラ名＋必殺技をランダムで部屋に送信する",
+      "engine": "combo",
+      "format": "{prefix}{char}{move}",
+      "pools": {
+        "char": "data/chars.json",
+        "move": "data/moves.json",
+        "prefix": {
+          "file": "data/prefixes.json",
+          "rate": 0.15
+        }
+      }
+    }
+  ]
+}
