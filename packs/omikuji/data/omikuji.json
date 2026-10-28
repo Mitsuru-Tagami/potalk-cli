@@ -1,0 +1,32 @@
+[
+  {
+    "fortune": "大吉",
+    "comment": "追い風気分。",
+    "suggestion": "気になる用事を5分だけ。"
+  },
+  {
+    "fortune": "吉",
+    "comment": "会話に小さなヒント。",
+    "suggestion": "誰かにひとつ質問。"
+  },
+  {
+    "fortune": "中吉",
+    "comment": "いつもの手順を丁寧に。",
+    "suggestion": "机の上を一つ整える。"
+  },
+  {
+    "fortune": "小吉",
+    "comment": "ひと息でリズムを戻そう。",
+    "suggestion": "水を一杯飲んで深呼吸。"
+  },
+  {
+    "fortune": "末吉",
+    "comment": "焦らず準備を整える日。",
+    "suggestion": "次の予定をひとつ確認。"
+  },
+  {
+    "fortune": "凶",
+    "comment": "慎重さを味方に。",
+    "suggestion": "大事な送信は一度見直す。"
+  }
+]

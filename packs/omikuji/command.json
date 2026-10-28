@@ -1,0 +1,18 @@
+{
+  "contract": "potalk-command-v1",
+  "author": "potalk-cli",
+  "version": "1.0.0",
+  "name": "omikuji",
+  "title": "おみくじ",
+  "commands": [
+    {
+      "name": "/omikuji",
+      "usage": "/omikuji",
+      "description": "運勢と今日の小さな提案を部屋に送信する",
+      "engine": "pool",
+      "pool": "data/omikuji.json",
+      "format": "{fortune}｜ひとこと：{comment}今日の提案：{suggestion}",
+      "errorUsage": "使用方法：/omikuji"
+    }
+  ]
+}

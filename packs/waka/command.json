@@ -1,0 +1,18 @@
+{
+  "contract": "potalk-command-v1",
+  "author": "potalk-cli",
+  "version": "1.0.0",
+  "name": "waka",
+  "title": "古今和歌集",
+  "commands": [
+    {
+      "name": "/waka",
+      "usage": "/waka",
+      "description": "古今和歌集から一首を選んで部屋に送信する",
+      "engine": "pool",
+      "pool": "data/waka.json",
+      "format": "{text} — {author}〔古今集・国文研〕",
+      "errorUsage": "使用方法：/waka"
+    }
+  ]
+}

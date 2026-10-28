@@ -7,6 +7,7 @@ import { enterRoom } from '../lib/session.mjs';
 import { capText } from '../lib/text.mjs';
 import { ROOM_MAX } from '../lib/config.mjs';
 import { completeRoomCommand } from '../lib/commands.mjs';
+import { getSharedCommandPacks } from '../lib/command-pack-store.mjs';
 import { serializePresence, serializeReceivedChat } from '../lib/events.mjs';
 import { editCardInteractive } from './card-edit.mjs';
 import { enableBotAudio } from '../lib/bot-audio.mjs';
@@ -78,9 +79,11 @@ export async function runJoin({ ref, create, profile, cardManager = null, sound 
   // 見つからなかった理由は pickFromLobby が出している。番号の入力で外れたときだけここで言う
   if (!target?.roomId) { if (target !== null) console.error('部屋が決まりませんでした。'); await lobby.leave(); process.exit(1); }
 
+  const commandPacks = getSharedCommandPacks();
   session = enterRoomImpl({
     target, profile, cardManager, lobby, sound, tts,
     pulseSource, pipewire,
+    packDispatch: commandPacks.dispatch, packHelp: commandPacks.helpLines,
     onText: say,
     onReceivedChat: eventsJsonl ? event => process.stdout.write(`${serializeReceivedChat(event)}\n`) : undefined,
     onPresence: eventsJsonl ? event => process.stdout.write(`${serializePresence(event)}\n`) : undefined,

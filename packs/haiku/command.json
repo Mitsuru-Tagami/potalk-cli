@@ -1,0 +1,18 @@
+{
+  "contract": "potalk-command-v1",
+  "author": "potalk-cli",
+  "version": "1.0.0",
+  "name": "haiku",
+  "title": "子規俳句",
+  "commands": [
+    {
+      "name": "/haiku",
+      "usage": "/haiku",
+      "description": "正岡子規の俳句から一句を選んで部屋に送信する",
+      "engine": "pool",
+      "pool": "data/haiku.json",
+      "format": "{text} — 正岡子規〔松山市・子規俳句〕",
+      "errorUsage": "使用方法：/haiku"
+    }
+  ]
+}
