@@ -41,6 +41,38 @@ if (process.argv[2] === '--check-commands') {
   process.exit(failed ? 1 : 0);
 }
 
+// コマンドパックの一覧と有効／無効の切り替え
+if (process.argv[2] === '--commands') {
+  const { prepareCommandPacks, togglePackState } = await import('./lib/command-pack-store.mjs');
+  const { listPackCommands } = await import('./lib/command-packs.mjs');
+  const readline = (await import('node:readline')).default;
+  const stateLabel = s => (s.state === 'enabled' ? (s.standard ? '標準・有効' : '有効') : s.state === 'inactive' ? '未有効化' : '無効化中');
+  const show = () => {
+    const prepared = prepareCommandPacks({ persistSeen: false });
+    for (const e of prepared.errors) console.log(e);
+    console.log('🫖 コマンドパック一覧');
+    prepared.states.forEach((s, i) => {
+      const cmds = listPackCommands(s.pack).map(c => c.name).join(' ');
+      console.log(` ${i + 1}. [${stateLabel(s)}] ${s.pack.title}（${s.pack.name}） ${cmds}`);
+    });
+    return prepared.states;
+  };
+  let states = show();
+  if (!process.stdin.isTTY) process.exit(0);
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  for (;;) {
+    const answer = await new Promise(resolve => rl.question('番号を入力すると有効／無効を切り替えます（Enterで終了）：', resolve));
+    const index = Number(answer.trim()) - 1;
+    if (!answer.trim() || !Number.isInteger(index) || index < 0 || index >= states.length) break;
+    const target = states[index];
+    const next = togglePackState(target.pack.name);
+    console.log(`『${target.pack.title}』を ${next === 'enabled' ? '有効' : next === 'disabled' ? '無効化' : '未有効化'} にしました`);
+    states = show();
+  }
+  rl.close();
+  process.exit(0);
+}
+
 // 未有効化のコマンドパックを有効化する
 if (process.argv[2] === '--install-commands') {
   const { activateInactivePacks } = await import('./lib/command-pack-store.mjs');
@@ -78,6 +110,7 @@ const HELP = `
   --bot-audio-source <BotSink_X.monitor>  BOT入力のPulseAudio monitor契約名
   --bot-audio-pipewire  BOT入力を指定serialのPipeWire nodeから取得（環境変数が必要）
   --install-commands  見つけた拡張コマンドパックを有効化する（標準コマンドは最初から有効）
+  --commands          コマンドパックの一覧を表示し、有効／無効を切り替える
   --check-commands [フォルダ]  コマンドパックの形式を検証する（部屋に入らない）
 
 【 通話中のチャットコマンド (部屋内で使用) 】
