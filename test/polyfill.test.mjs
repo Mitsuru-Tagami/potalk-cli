@@ -1,10 +1,33 @@
 // lib/polyfill.mjs の穴埋めが効いているか（ネットワークを使わず、同じプロセスの中で 2 本つなぐ）
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { offerPoolPatched, livePeerConnections } from '../lib/polyfill.mjs';
+import { offerPoolPatched, livePeerConnections, startLivePcLog } from '../lib/polyfill.mjs';
 
 test('trystero の作り置きの接続を減らす書き換えが効いている（trystero の版が変わると落ちる）', () => {
   assert.equal(offerPoolPatched, true);
+});
+
+test('startLivePcLog は PTK_DEBUG のときだけ生存中の接続数を定期的に出す', async () => {
+  const saved = process.env.PTK_DEBUG;
+  const lines = [];
+  const log = s => lines.push(s);
+  try {
+    delete process.env.PTK_DEBUG;
+    const stopOff = startLivePcLog({ intervalMs: 10, log });
+    await new Promise(r => setTimeout(r, 35));
+    stopOff();
+    assert.deepEqual(lines, []);   // PTK_DEBUG なしでは何も出ない
+
+    process.env.PTK_DEBUG = '1';
+    const before = livePeerConnections();
+    const stop = startLivePcLog({ intervalMs: 10, log });
+    await new Promise(r => setTimeout(r, 35));
+    stop();
+    assert.ok(lines.length >= 2);
+    assert.ok(lines.every(s => s === `[pc] live=${before}`));
+  } finally {
+    if (saved === undefined) delete process.env.PTK_DEBUG; else process.env.PTK_DEBUG = saved;
+  }
 });
 
 test('引数なしの setLocalDescription と、順番待ち（operations chain）でつながる', async () => {

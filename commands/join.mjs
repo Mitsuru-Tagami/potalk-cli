@@ -12,6 +12,7 @@ import { serializePresence, serializeReceivedChat } from '../lib/events.mjs';
 import { editCardInteractive } from './card-edit.mjs';
 import { enableBotAudio } from '../lib/bot-audio.mjs';
 import { primeTurnRtcConfig } from '../lib/turn.mjs';
+import { startLivePcLog } from '../lib/polyfill.mjs';
 
 const hhmm = () => new Date().toTimeString().slice(0, 5);
 const makeSay = output => s => output.write(`${hhmm()}  ${s}\n`);
@@ -66,6 +67,7 @@ export async function runJoin({ ref, create, profile, cardManager = null, sound 
   // trystero はリレーの不調（rate limit など）を console.warn に出す。よくあることなので普段は隠す
   const warn = console.warn;
   console.warn = (...a) => { if (process.env.PTK_DEBUG || !String(a[0]).startsWith('Trystero:')) warn(...a); };
+  startLivePcLog();   // PTK_DEBUG のとき 60 秒ごとに生存中の接続数を出す（上限への接近を観測するため）
   const humanOutput = eventsJsonl ? process.stderr : process.stdout;
   const say = makeSay(humanOutput);
   const rl = createReadlineImpl({ input: process.stdin, output: humanOutput, completer: completeRoomCommand });
