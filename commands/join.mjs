@@ -56,11 +56,18 @@ async function pickFromLobby(lobby, rl, query = '', output = process.stdout) {
   return r ? { roomId: r.id, name: r.rn } : undefined;   // undefined＝番号が外れた（null＝見つからなかった）
 }
 
+// 接続上限の例外かどうか（lib/polyfill.mjs が MAX_LIVE_PC 到達時に投げる）。
+// これは「その相手との接続を諦める」ためのもので、プロセス全体を落とす理由にはならない。
+export function isPeerCapError(e) {
+  return (e?.message || e) === 'too many peer connections';
+}
+
 export async function runJoin({ ref, create, profile, cardManager = null, sound = true, eventsJsonl = false, tts = null, pulseSource = null, pipewire = null, enterRoomImpl = enterRoom, openLobbyImpl = openLobby, createReadlineImpl = readline.createInterface, primeTurnImpl = primeTurnRtcConfig }) {
   let quitting = false;
   let session = null;
   process.on('uncaughtException', e => {
     if (process.env.PTK_DEBUG) console.error('[error]', e?.message || e);
+    if (isPeerCapError(e)) return;   // 上限到達はその相手だけ諦める（本来の設計）。全体は落とさない
     if (pipewire) void quit(1);
   });
   // trystero はリレーの不調（rate limit など）を console.warn に出す。よくあることなので普段は隠す
