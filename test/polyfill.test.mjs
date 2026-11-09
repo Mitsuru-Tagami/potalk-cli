@@ -52,3 +52,15 @@ test('引数なしの setLocalDescription と、順番待ち（operations chain�
   a.close(); b.close();
   assert.equal(livePeerConnections(), before);
 });
+
+test('閉じた接続の localDescription は null を返し、ネイティブ側を読まない', async () => {
+  const a = new RTCPeerConnection(), b = new RTCPeerConnection();
+  a.onicecandidate = e => e.candidate && b.addIceCandidate(e.candidate);
+  b.onicecandidate = e => e.candidate && a.addIceCandidate(e.candidate);
+  a.createDataChannel('t');
+  await a.setLocalDescription();
+  assert.equal(a.localDescription.type, 'offer');   // 開いている間は通常どおり読める
+  a.close(); b.close();
+  assert.equal(a.localDescription, null);
+  assert.equal(b.localDescription, null);
+});
