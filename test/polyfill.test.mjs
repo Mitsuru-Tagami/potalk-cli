@@ -1,7 +1,7 @@
 // lib/polyfill.mjs の穴埋めが効いているか（ネットワークを使わず、同じプロセスの中で 2 本つなぐ）
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { offerPoolPatched, livePeerConnections, startLivePcLog } from '../lib/polyfill.mjs';
+import { offerPoolPatched, livePeerConnections, startLivePcLog, sweepStalePcs } from '../lib/polyfill.mjs';
 
 test('trystero の作り置きの接続を減らす書き換えが効いている（trystero の版が変わると落ちる）', () => {
   assert.equal(offerPoolPatched, true);
@@ -51,6 +51,42 @@ test('引数なしの setLocalDescription と、順番待ち（operations chain�
   assert.equal(await got, 'こんにちは');
   a.close(); b.close();
   assert.equal(livePeerConnections(), before);
+});
+
+test('掃除屋は、状態の止まった未接続の接続だけを閉じ、新しい接続には触らない', () => {
+  const before = livePeerConnections();
+  const stale = new RTCPeerConnection();
+  assert.equal(livePeerConnections(), before + 1);
+  const silent = () => {};
+  // 作られたばかり（時刻を進めていない）なら閉じない
+  assert.equal(sweepStalePcs({ log: silent }), 0);
+  assert.equal(livePeerConnections(), before + 1);
+  // 11分進めた世界では、確立も遷移もなかったこの接続は滞留として閉じる
+  assert.equal(sweepStalePcs({ now: Date.now() + 11 * 60 * 1000, log: silent }), 1);
+  assert.equal(stale.connectionState, 'closed');
+  assert.equal(livePeerConnections(), before);
+});
+
+test('掃除屋は、つながっている接続には時刻を進めても触らない', async () => {
+  const a = new RTCPeerConnection(), b = new RTCPeerConnection();
+  a.onicecandidate = e => e.candidate && b.addIceCandidate(e.candidate);
+  b.onicecandidate = e => e.candidate && a.addIceCandidate(e.candidate);
+  const ch = a.createDataChannel('t');
+  const opened = new Promise(res => { ch.onopen = res; });
+  await a.setLocalDescription();
+  await b.setRemoteDescription(a.localDescription);
+  await b.setLocalDescription();
+  await a.setRemoteDescription(b.localDescription);
+  await opened;
+  const before = livePeerConnections();
+  assert.equal(sweepStalePcs({ now: Date.now() + 60 * 60 * 1000, log: () => {} }), 0);
+  assert.equal(livePeerConnections(), before);
+  assert.notEqual(a.connectionState, 'closed');
+  assert.notEqual(b.connectionState, 'closed');
+  // wrtc は、つながった直後の接続を閉じると後始末が競合してプロセス終了時に
+  // segfault することがある（実測で再現）。少し落ち着かせてから閉じる。
+  await new Promise(r => setTimeout(r, 300));
+  a.close(); b.close();
 });
 
 test('閉じた接続の localDescription は null を返し、ネイティブ側を読まない', async () => {
