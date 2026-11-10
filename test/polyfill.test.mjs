@@ -83,6 +83,9 @@ test('掃除屋は、つながっている接続には時刻を進めても触�
   assert.equal(livePeerConnections(), before);
   assert.notEqual(a.connectionState, 'closed');
   assert.notEqual(b.connectionState, 'closed');
+  // wrtc は、つながった直後の接続を閉じると後始末が競合してプロセス終了時に
+  // segfault することがある（実測で再現）。少し落ち着かせてから閉じる。
+  await new Promise(r => setTimeout(r, 300));
   a.close(); b.close();
 });
 
