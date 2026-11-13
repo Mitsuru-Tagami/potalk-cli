@@ -100,3 +100,22 @@ test('閉じた接続の localDescription は null を返し、ネイティブ�
   assert.equal(a.localDescription, null);
   assert.equal(b.localDescription, null);
 });
+
+test('閉じた接続の remoteDescription 系も null を返し、ネイティブ側を読まない', async () => {
+  const a = new RTCPeerConnection(), b = new RTCPeerConnection();
+  a.onicecandidate = e => e.candidate && b.addIceCandidate(e.candidate).catch(() => {});
+  b.onicecandidate = e => e.candidate && a.addIceCandidate(e.candidate).catch(() => {});
+  a.createDataChannel('t');
+  await a.setLocalDescription();
+  await b.setRemoteDescription(a.localDescription);
+  // 開いている間は通常どおり読める（trystero の candidate 振り分けが使う）
+  assert.equal(b.remoteDescription.type, 'offer');
+  assert.match(b.remoteDescription.sdp, /a=ice-ufrag:/);
+  b.close(); a.close();
+  // 閉じた後は、遅れて届いた candidate の処理が読んでも落ちずに null が返る
+  assert.equal(b.remoteDescription, null);
+  assert.equal(b.currentRemoteDescription, null);
+  assert.equal(b.pendingRemoteDescription, null);
+  assert.equal(b.currentLocalDescription, null);
+  assert.equal(b.pendingLocalDescription, null);
+});
