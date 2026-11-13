@@ -101,6 +101,36 @@ test('閉じた接続の localDescription は null を返し、ネイティブ�
   assert.equal(b.localDescription, null);
 });
 
+test('localDescription は写しから返り、ICE収集の完了で候補入りのSDPに更新される', async () => {
+  const a = new RTCPeerConnection();
+  a.createDataChannel('t');
+  await a.setLocalDescription();
+  const first = a.localDescription;
+  assert.equal(first.type, 'offer');
+  assert.equal(typeof first.sdp, 'string');
+  // 返した写しを書き換えても、次の読み取りには影響しない
+  first.sdp = 'corrupted';
+  assert.notEqual(a.localDescription.sdp, 'corrupted');
+  // ICE 収集が終わると、候補（a=candidate）入りの SDP が写しに反映される
+  const deadline = Date.now() + 5000;
+  while (!a.localDescription.sdp.includes('a=candidate') && Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 25));
+  }
+  assert.match(a.localDescription.sdp, /a=candidate/);
+  a.close();
+  assert.equal(a.localDescription, null);
+});
+
+test('rollback の後は localDescription の写しも null になる', async () => {
+  const a = new RTCPeerConnection();
+  a.createDataChannel('t');
+  await a.setLocalDescription();
+  assert.equal(a.localDescription.type, 'offer');
+  await a.setLocalDescription({ type: 'rollback' });
+  assert.equal(a.localDescription, null);
+  a.close();
+});
+
 test('閉じた接続の remoteDescription 系も null を返し、ネイティブ側を読まない', async () => {
   const a = new RTCPeerConnection(), b = new RTCPeerConnection();
   a.onicecandidate = e => e.candidate && b.addIceCandidate(e.candidate).catch(() => {});
